@@ -1,21 +1,18 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import './App.css'
+import {
+  formatDbError,
+  isSupabaseConfigured,
+  LIST_ID,
+  supabase,
+} from './lib/supabase'
 
-const STORAGE_KEY = 'ticktick-todos'
-
-function newTaskId() {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID()
-  }
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-}
-
-function loadTasks() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : []
-  } catch {
-    return []
+function rowToTask(row) {
+  return {
+    id: row.id,
+    text: row.text,
+    completed: row.completed,
+    createdAt: row.created_at,
   }
 }
 
@@ -96,13 +93,14 @@ const NAV_ITEMS = [
   { id: 'settings', label: 'More', Icon: IconSettings },
 ]
 
-function TaskRow({ task, onToggle, onRemove }) {
+function TaskRow({ task, onToggle, onRemove, busy }) {
   return (
     <li className={`task${task.completed ? ' task--done' : ''}`}>
       <label className="task__check">
         <input
           type="checkbox"
           checked={task.completed}
+          disabled={busy}
           onChange={() => onToggle(task.id)}
         />
         <span className="task__box" aria-hidden="true" />
@@ -111,6 +109,7 @@ function TaskRow({ task, onToggle, onRemove }) {
       <button
         type="button"
         className="task__remove"
+        disabled={busy}
         aria-label={`Delete ${task.text}`}
         onClick={() => onRemove(task.id)}
       >
@@ -121,49 +120,132 @@ function TaskRow({ task, onToggle, onRemove }) {
 }
 
 function App() {
-  const [tasks, setTasks] = useState(loadTasks)
+  const [tasks, setTasks] = useState([])
   const [draft, setDraft] = useState('')
   const [activeTab, setActiveTab] = useState('today')
+  const [loading, setLoading] = useState(isSupabaseConfigured)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(
+    isSupabaseConfigured
+      ? null
+      : 'Cloud sync is off — add Supabase keys to connect a shared list.',
+  )
   const inputRef = useRef(null)
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks))
-    } catch {
-      /* private browsing or storage full */
+  const fetchTasks = useCallback(async () => {
+    if (!supabase) return
+    const { data, error: dbError } = await supabase
+      .from('tasks')
+      .select('id, text, completed, created_at')
+      .eq('list_id', LIST_ID)
+      .order('created_at', { ascending: false })
+
+    if (dbError) {
+      setError(formatDbError(dbError))
+      return
     }
-  }, [tasks])
+    setTasks((data ?? []).map(rowToTask))
+    setError(null)
+  }, [])
+
+  useEffect(() => {
+    if (!supabase) return undefined
+
+    let cancelled = false
+
+    async function init() {
+      setLoading(true)
+      await fetchTasks()
+      if (!cancelled) setLoading(false)
+    }
+
+    init()
+
+    const channel = supabase
+      .channel(`tasks-${LIST_ID}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tasks',
+          filter: `list_id=eq.${LIST_ID}`,
+        },
+        () => {
+          fetchTasks()
+        },
+      )
+      .subscribe()
+
+    return () => {
+      cancelled = true
+      supabase.removeChannel(channel)
+    }
+  }, [fetchTasks])
 
   const todayTasks = tasks.filter((t) => isToday(t.createdAt))
   const pending = todayTasks.filter((t) => !t.completed)
   const done = todayTasks.filter((t) => t.completed)
   const now = new Date()
 
-  function addTask(e) {
+  async function addTask(e) {
     e.preventDefault()
     const text = draft.trim()
-    if (!text) return
-    setTasks((prev) => [
-      {
-        id: newTaskId(),
-        text,
-        completed: false,
-        createdAt: new Date().toISOString(),
-      },
-      ...prev,
-    ])
+    if (!text || !supabase) return
+
+    setBusy(true)
+    const { error: dbError } = await supabase.from('tasks').insert({
+      list_id: LIST_ID,
+      text,
+      completed: false,
+    })
+    setBusy(false)
+
+    if (dbError) {
+      setError(formatDbError(dbError))
+      return
+    }
     setDraft('')
     inputRef.current?.blur()
+    await fetchTasks()
   }
 
-  function toggleTask(id) {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t)),
-    )
+  async function toggleTask(id) {
+    if (!supabase) return
+    const task = tasks.find((t) => t.id === id)
+    if (!task) return
+
+    setBusy(true)
+    const { error: dbError } = await supabase
+      .from('tasks')
+      .update({ completed: !task.completed })
+      .eq('id', id)
+      .eq('list_id', LIST_ID)
+    setBusy(false)
+
+    if (dbError) {
+      setError(formatDbError(dbError))
+      return
+    }
+    await fetchTasks()
   }
 
-  function removeTask(id) {
-    setTasks((prev) => prev.filter((t) => t.id !== id))
+  async function removeTask(id) {
+    if (!supabase) return
+
+    setBusy(true)
+    const { error: dbError } = await supabase
+      .from('tasks')
+      .delete()
+      .eq('id', id)
+      .eq('list_id', LIST_ID)
+    setBusy(false)
+
+    if (dbError) {
+      setError(formatDbError(dbError))
+      return
+    }
+    await fetchTasks()
   }
 
   function openComposer() {
@@ -174,13 +256,24 @@ function App() {
     })
   }
 
+  const syncReady = isSupabaseConfigured && !error?.includes('Cloud sync is off')
+
   return (
     <div className="app">
       <header className="header">
         <p className="header__greeting">Good {getGreeting(now)}</p>
         <h1 className="header__title">Today</h1>
         <p className="header__date">{formatHeaderDate(now)}</p>
+        {syncReady && (
+          <p className="header__shared">Shared list — you both see the same tasks</p>
+        )}
       </header>
+
+      {error && (
+        <p className="status-banner status-banner--error" role="alert">
+          {error}
+        </p>
+      )}
 
       <main className="main">
         {activeTab === 'today' ? (
@@ -196,12 +289,13 @@ function App() {
                 onChange={(e) => setDraft(e.target.value)}
                 enterKeyHint="done"
                 autoComplete="off"
+                disabled={!isSupabaseConfigured || busy}
                 aria-label="New task"
               />
               <button
                 type="submit"
                 className={`composer__submit${draft.trim() ? '' : ' composer__submit--inactive'}`}
-                aria-disabled={!draft.trim()}
+                aria-disabled={!draft.trim() || !isSupabaseConfigured || busy}
               >
                 Add
               </button>
@@ -215,14 +309,16 @@ function App() {
                 <span className="section__count">{pending.length} left</span>
               </div>
 
-              {todayTasks.length === 0 ? (
+              {loading ? (
+                <p className="empty empty--loading">Loading shared tasks…</p>
+              ) : todayTasks.length === 0 ? (
                 <div className="empty">
                   <span className="empty__emoji" aria-hidden="true">
                     ☀️
                   </span>
                   <p className="empty__title">Nothing planned yet</p>
                   <p className="empty__hint">
-                    Tap + or type above to add your first task
+                    Tap + or type above — your partner will see it too
                   </p>
                 </div>
               ) : (
@@ -231,6 +327,7 @@ function App() {
                     <TaskRow
                       key={task.id}
                       task={task}
+                      busy={busy}
                       onToggle={toggleTask}
                       onRemove={removeTask}
                     />
@@ -244,6 +341,7 @@ function App() {
                         <TaskRow
                           key={task.id}
                           task={task}
+                          busy={busy}
                           onToggle={toggleTask}
                           onRemove={removeTask}
                         />
@@ -275,6 +373,7 @@ function App() {
         type="button"
         className="fab"
         aria-label="Add task"
+        disabled={!isSupabaseConfigured || busy}
         onClick={openComposer}
       >
         <IconPlus />
@@ -294,7 +393,6 @@ function App() {
           </button>
         ))}
       </nav>
-
     </div>
   )
 }

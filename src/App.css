@@ -53,6 +53,33 @@
   color: var(--ink-muted);
 }
 
+.header__shared {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+  color: var(--accent-deep);
+  font-weight: 500;
+}
+
+.status-banner {
+  margin: 0 1rem 0.5rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  text-align: left;
+}
+
+.status-banner--error {
+  background: #fceee6;
+  color: #9a4a2e;
+  border: 1px solid #f0cdb8;
+}
+
+.empty--loading {
+  text-align: center;
+  color: var(--ink-muted);
+  padding: 2rem 1rem;
+}
+
 /* Main */
 .main {
   flex: 1;
