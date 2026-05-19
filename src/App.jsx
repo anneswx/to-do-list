@@ -3,6 +3,13 @@ import './App.css'
 
 const STORAGE_KEY = 'ticktick-todos'
 
+function newTaskId() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+}
+
 function loadTasks() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -117,16 +124,15 @@ function App() {
   const [tasks, setTasks] = useState(loadTasks)
   const [draft, setDraft] = useState('')
   const [activeTab, setActiveTab] = useState('today')
-  const [composerOpen, setComposerOpen] = useState(false)
   const inputRef = useRef(null)
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks))
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks))
+    } catch {
+      /* private browsing or storage full */
+    }
   }, [tasks])
-
-  useEffect(() => {
-    if (composerOpen) inputRef.current?.focus()
-  }, [composerOpen])
 
   const todayTasks = tasks.filter((t) => isToday(t.createdAt))
   const pending = todayTasks.filter((t) => !t.completed)
@@ -139,7 +145,7 @@ function App() {
     if (!text) return
     setTasks((prev) => [
       {
-        id: crypto.randomUUID(),
+        id: newTaskId(),
         text,
         completed: false,
         createdAt: new Date().toISOString(),
@@ -147,7 +153,7 @@ function App() {
       ...prev,
     ])
     setDraft('')
-    setComposerOpen(false)
+    inputRef.current?.blur()
   }
 
   function toggleTask(id) {
@@ -162,8 +168,10 @@ function App() {
 
   function openComposer() {
     setActiveTab('today')
-    setComposerOpen(true)
-    requestAnimationFrame(() => inputRef.current?.focus())
+    requestAnimationFrame(() => {
+      inputRef.current?.focus()
+      inputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
   }
 
   return (
@@ -177,10 +185,7 @@ function App() {
       <main className="main">
         {activeTab === 'today' ? (
           <>
-            <form
-              className={`composer${composerOpen ? ' composer--focused' : ''}`}
-              onSubmit={addTask}
-            >
+            <form className="composer" onSubmit={addTask}>
               <span className="composer__dot" aria-hidden="true" />
               <input
                 ref={inputRef}
@@ -189,14 +194,17 @@ function App() {
                 placeholder="Add a task for today…"
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
-                onFocus={() => setComposerOpen(true)}
+                enterKeyHint="done"
+                autoComplete="off"
                 aria-label="New task"
               />
-              {draft.trim() && (
-                <button type="submit" className="composer__submit">
-                  Add
-                </button>
-              )}
+              <button
+                type="submit"
+                className={`composer__submit${draft.trim() ? '' : ' composer__submit--inactive'}`}
+                aria-disabled={!draft.trim()}
+              >
+                Add
+              </button>
             </form>
 
             <section className="section" aria-labelledby="today-heading">
@@ -287,14 +295,6 @@ function App() {
         ))}
       </nav>
 
-      {composerOpen && (
-        <button
-          type="button"
-          className="backdrop"
-          aria-label="Close add task"
-          onClick={() => setComposerOpen(false)}
-        />
-      )}
     </div>
   )
 }

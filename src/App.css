@@ -63,6 +63,8 @@
 
 /* Composer */
 .composer {
+  position: relative;
+  z-index: 12;
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -77,7 +79,7 @@
     box-shadow 0.2s;
 }
 
-.composer--focused {
+.composer:focus-within {
   border-color: rgba(224, 122, 79, 0.45);
   box-shadow:
     var(--shadow),
@@ -127,6 +129,10 @@
 
 .composer__submit:active {
   background: var(--accent-deep);
+}
+
+.composer__submit--inactive {
+  opacity: 0.4;
 }
 
 /* Section */
@@ -409,26 +415,6 @@
 
 .bottom-nav__item--active svg {
   stroke: var(--accent-deep);
-}
-
-/* Backdrop */
-.backdrop {
-  position: fixed;
-  inset: 0;
-  border: none;
-  background: rgba(44, 38, 32, 0.12);
-  z-index: 10;
-  cursor: default;
-  animation: fade-in 0.2s ease;
-}
-
-@keyframes fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
 }
 
 @media (min-width: 481px) {
