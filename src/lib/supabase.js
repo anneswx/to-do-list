@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 
-export const LIST_ID = import.meta.env.VITE_LIST_ID ?? 'our-couple-list'
+export const LIST_ID =
+  (import.meta.env.VITE_LIST_ID || '').trim() || 'our-couple-list'
 
 const url = import.meta.env.VITE_SUPABASE_URL
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY

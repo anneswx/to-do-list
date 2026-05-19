@@ -68,6 +68,30 @@
   text-align: left;
 }
 
+.status-banner--info {
+  background: #fff8e8;
+  color: #6b5a3e;
+  border: 1px solid #f0e0c0;
+}
+
+.status-banner--info p {
+  margin: 0 0 0.5rem;
+}
+
+.setup-steps {
+  margin: 0;
+  padding-left: 1.15rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.setup-steps code {
+  font-size: 0.75rem;
+  background: rgba(255, 255, 255, 0.6);
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+}
+
 .status-banner--error {
   background: #fceee6;
   color: #9a4a2e;

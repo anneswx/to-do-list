@@ -6,15 +6,12 @@ import {
   LIST_ID,
   supabase,
 } from './lib/supabase'
-
-function rowToTask(row) {
-  return {
-    id: row.id,
-    text: row.text,
-    completed: row.completed,
-    createdAt: row.created_at,
-  }
-}
+import {
+  loadLocalTasks,
+  newLocalTaskId,
+  rowToTask,
+  saveLocalTasks,
+} from './lib/tasks'
 
 function isToday(iso) {
   const d = new Date(iso)
@@ -120,15 +117,17 @@ function TaskRow({ task, onToggle, onRemove, busy }) {
 }
 
 function App() {
-  const [tasks, setTasks] = useState([])
+  const useCloud = isSupabaseConfigured
+  const [tasks, setTasks] = useState(() => (useCloud ? [] : loadLocalTasks()))
   const [draft, setDraft] = useState('')
   const [activeTab, setActiveTab] = useState('today')
-  const [loading, setLoading] = useState(isSupabaseConfigured)
+  const [loading, setLoading] = useState(useCloud)
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState(
-    isSupabaseConfigured
+  const [error, setError] = useState(null)
+  const [setupHint] = useState(
+    useCloud
       ? null
-      : 'Cloud sync is off — add Supabase keys to connect a shared list.',
+      : 'Shared sync is not set up yet — tasks save on this phone only. See steps below.',
   )
   const inputRef = useRef(null)
 
@@ -147,6 +146,12 @@ function App() {
     setTasks((data ?? []).map(rowToTask))
     setError(null)
   }, [])
+
+  useEffect(() => {
+    if (!useCloud) {
+      saveLocalTasks(tasks)
+    }
+  }, [tasks, useCloud])
 
   useEffect(() => {
     if (!supabase) return undefined
@@ -181,7 +186,7 @@ function App() {
       cancelled = true
       supabase.removeChannel(channel)
     }
-  }, [fetchTasks])
+  }, [fetchTasks, useCloud])
 
   const todayTasks = tasks.filter((t) => isToday(t.createdAt))
   const pending = todayTasks.filter((t) => !t.completed)
@@ -191,7 +196,22 @@ function App() {
   async function addTask(e) {
     e.preventDefault()
     const text = draft.trim()
-    if (!text || !supabase) return
+    if (!text) return
+
+    if (!useCloud) {
+      setTasks((prev) => [
+        {
+          id: newLocalTaskId(),
+          text,
+          completed: false,
+          createdAt: new Date().toISOString(),
+        },
+        ...prev,
+      ])
+      setDraft('')
+      inputRef.current?.blur()
+      return
+    }
 
     setBusy(true)
     const { error: dbError } = await supabase.from('tasks').insert({
@@ -211,7 +231,13 @@ function App() {
   }
 
   async function toggleTask(id) {
-    if (!supabase) return
+    if (!useCloud) {
+      setTasks((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t)),
+      )
+      return
+    }
+
     const task = tasks.find((t) => t.id === id)
     if (!task) return
 
@@ -231,7 +257,10 @@ function App() {
   }
 
   async function removeTask(id) {
-    if (!supabase) return
+    if (!useCloud) {
+      setTasks((prev) => prev.filter((t) => t.id !== id))
+      return
+    }
 
     setBusy(true)
     const { error: dbError } = await supabase
@@ -256,18 +285,30 @@ function App() {
     })
   }
 
-  const syncReady = isSupabaseConfigured && !error?.includes('Cloud sync is off')
-
   return (
     <div className="app">
       <header className="header">
         <p className="header__greeting">Good {getGreeting(now)}</p>
         <h1 className="header__title">Today</h1>
         <p className="header__date">{formatHeaderDate(now)}</p>
-        {syncReady && (
+        {useCloud && !error && (
           <p className="header__shared">Shared list — you both see the same tasks</p>
         )}
       </header>
+
+      {setupHint && (
+        <div className="status-banner status-banner--info">
+          <p>{setupHint}</p>
+          <ol className="setup-steps">
+            <li>Create a Supabase project and run <code>supabase/schema.sql</code></li>
+            <li>
+              Add GitHub secrets: <code>VITE_SUPABASE_URL</code>,{' '}
+              <code>VITE_SUPABASE_ANON_KEY</code>, <code>VITE_LIST_ID</code>
+            </li>
+            <li>Re-run the Deploy workflow on GitHub Actions</li>
+          </ol>
+        </div>
+      )}
 
       {error && (
         <p className="status-banner status-banner--error" role="alert">
@@ -289,13 +330,13 @@ function App() {
                 onChange={(e) => setDraft(e.target.value)}
                 enterKeyHint="done"
                 autoComplete="off"
-                disabled={!isSupabaseConfigured || busy}
+                disabled={busy}
                 aria-label="New task"
               />
               <button
                 type="submit"
                 className={`composer__submit${draft.trim() ? '' : ' composer__submit--inactive'}`}
-                aria-disabled={!draft.trim() || !isSupabaseConfigured || busy}
+                aria-disabled={!draft.trim() || busy}
               >
                 Add
               </button>
@@ -318,7 +359,9 @@ function App() {
                   </span>
                   <p className="empty__title">Nothing planned yet</p>
                   <p className="empty__hint">
-                    Tap + or type above — your partner will see it too
+                    {useCloud
+                      ? 'Tap + or type above — your partner will see it too'
+                      : 'Tap + or type above to add your first task'}
                   </p>
                 </div>
               ) : (
@@ -373,7 +416,7 @@ function App() {
         type="button"
         className="fab"
         aria-label="Add task"
-        disabled={!isSupabaseConfigured || busy}
+        disabled={busy}
         onClick={openComposer}
       >
         <IconPlus />
