@@ -26,7 +26,7 @@ Both of you open the same URL and see the **same tasks** in real time.
 | Copy | Use as |
 |------|--------|
 | Project URL | `VITE_SUPABASE_URL` |
-| `anon` `public` key | `VITE_SUPABASE_ANON_KEY` |
+| **anon public** key (`eyJ…`) or **publishable** key (`sb_publishable_…`) | `VITE_SUPABASE_ANON_KEY` |
 
 Your list id from step 2 → `VITE_LIST_ID` (same string, no quotes)
 

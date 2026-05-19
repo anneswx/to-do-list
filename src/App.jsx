@@ -160,8 +160,13 @@ function App() {
 
     async function init() {
       setLoading(true)
-      await fetchTasks()
-      if (!cancelled) setLoading(false)
+      try {
+        await fetchTasks()
+      } catch {
+        if (!cancelled) setError('Could not load tasks. Check your connection.')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
     }
 
     init()
