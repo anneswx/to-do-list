@@ -12,9 +12,7 @@ export function loadLocalTasks() {
 export function saveLocalTasks(tasks) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks))
-  } catch {
-    /* private browsing */
-  }
+  } catch {}
 }
 
 export function newLocalTaskId() {
@@ -30,5 +28,6 @@ export function rowToTask(row) {
     text: row.text,
     completed: row.completed,
     createdAt: row.created_at,
+    dueDate: row.due_date,
   }
 }

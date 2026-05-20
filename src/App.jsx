@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import {
   formatDbError,
@@ -13,16 +13,6 @@ import {
   saveLocalTasks,
 } from './lib/tasks'
 
-function isToday(iso) {
-  const d = new Date(iso)
-  const now = new Date()
-  return (
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate()
-  )
-}
-
 function formatHeaderDate(date) {
   return date.toLocaleDateString(undefined, {
     weekday: 'long',
@@ -31,85 +21,71 @@ function formatHeaderDate(date) {
   })
 }
 
-function getGreeting(date) {
-  const h = date.getHours()
-  if (h < 12) return 'morning'
-  if (h < 17) return 'afternoon'
-  return 'evening'
+function formatDateLabel(dateString) {
+  if (!dateString) return 'No date'
+
+  const d = new Date(dateString + 'T00:00:00')
+  const today = new Date()
+
+  const same =
+    d.getFullYear() === today.getFullYear() &&
+    d.getMonth() === today.getMonth() &&
+    d.getDate() === today.getDate()
+
+  if (same) return 'Today'
+
+  return d.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+  })
 }
 
-function IconToday() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <rect x="3" y="4" width="18" height="18" rx="2" />
-      <path d="M16 2v4M8 2v4M3 10h18" />
-      <circle cx="12" cy="15" r="1.5" fill="currentColor" stroke="none" />
-    </svg>
-  )
-}
+function isOverdue(dateString) {
+  if (!dateString) return false
 
-function IconCalendar() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <rect x="3" y="4" width="18" height="18" rx="2" />
-      <path d="M16 2v4M8 2v4M3 10h18" />
-    </svg>
-  )
-}
+  const due = new Date(dateString + 'T00:00:00')
+  const today = new Date()
 
-function IconInbox() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M4 4h16v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4z" />
-      <path d="M4 10h16l-2 4H6l-2-4z" />
-    </svg>
-  )
-}
+  due.setHours(0, 0, 0, 0)
+  today.setHours(0, 0, 0, 0)
 
-function IconSettings() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <circle cx="12" cy="12" r="3" />
-      <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-    </svg>
-  )
-}
-
-function IconPlus() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-      <path d="M12 5v14M5 12h14" />
-    </svg>
-  )
+  return due < today
 }
 
 const NAV_ITEMS = [
-  { id: 'today', label: 'Today', Icon: IconToday },
-  { id: 'calendar', label: 'Calendar', Icon: IconCalendar },
-  { id: 'inbox', label: 'Inbox', Icon: IconInbox },
-  { id: 'settings', label: 'More', Icon: IconSettings },
+  { id: 'today', label: 'Today' },
+  { id: 'calendar', label: 'Calendar' },
 ]
 
-function TaskRow({ task, onToggle, onRemove, busy }) {
+function TaskRow({ task, onToggle, onRemove }) {
   return (
     <li className={`task${task.completed ? ' task--done' : ''}`}>
       <label className="task__check">
         <input
           type="checkbox"
           checked={task.completed}
-          disabled={busy}
           onChange={() => onToggle(task.id)}
         />
-        <span className="task__box" aria-hidden="true" />
+        <span className="task__box" />
       </label>
-      <span className="task__text">{task.text}</span>
-      <button
-        type="button"
-        className="task__remove"
-        disabled={busy}
-        aria-label={`Delete ${task.text}`}
-        onClick={() => onRemove(task.id)}
-      >
+
+      <div className="task__content">
+        <span className="task__text">{task.text}</span>
+
+        {task.dueDate && (
+          <span
+            className={`task__date ${
+              isOverdue(task.dueDate) && !task.completed
+                ? 'task__date--overdue'
+                : ''
+            }`}
+          >
+            {formatDateLabel(task.dueDate)}
+          </span>
+        )}
+      </div>
+
+      <button className="task__remove" onClick={() => onRemove(task.id)}>
         ×
       </button>
     </li>
@@ -118,33 +94,32 @@ function TaskRow({ task, onToggle, onRemove, busy }) {
 
 function App() {
   const useCloud = isSupabaseConfigured
-  const [tasks, setTasks] = useState(() => (useCloud ? [] : loadLocalTasks()))
-  const [draft, setDraft] = useState('')
-  const [activeTab, setActiveTab] = useState('today')
-  const [loading, setLoading] = useState(useCloud)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState(null)
-  const [setupHint] = useState(
-    useCloud
-      ? null
-      : 'Shared sync is not set up yet — tasks save on this phone only. See steps below.',
+
+  const [tasks, setTasks] = useState(() =>
+    useCloud ? [] : loadLocalTasks(),
   )
+
+  const [draft, setDraft] = useState('')
+  const [dueDate, setDueDate] = useState('')
+  const [activeTab, setActiveTab] = useState('today')
+
   const inputRef = useRef(null)
 
   const fetchTasks = useCallback(async () => {
     if (!supabase) return
-    const { data, error: dbError } = await supabase
-      .from('tasks')
-      .select('id, text, completed, created_at')
-      .eq('list_id', LIST_ID)
-      .order('created_at', { ascending: false })
 
-    if (dbError) {
-      setError(formatDbError(dbError))
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('list_id', LIST_ID)
+      .order('due_date', { ascending: true })
+
+    if (error) {
+      console.error(error)
       return
     }
+
     setTasks((data ?? []).map(rowToTask))
-    setError(null)
   }, [])
 
   useEffect(() => {
@@ -154,22 +129,9 @@ function App() {
   }, [tasks, useCloud])
 
   useEffect(() => {
-    if (!supabase) return undefined
+    if (!supabase) return
 
-    let cancelled = false
-
-    async function init() {
-      setLoading(true)
-      try {
-        await fetchTasks()
-      } catch {
-        if (!cancelled) setError('Could not load tasks. Check your connection.')
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-
-    init()
+    fetchTasks()
 
     const channel = supabase
       .channel(`tasks-${LIST_ID}`)
@@ -181,26 +143,34 @@ function App() {
           table: 'tasks',
           filter: `list_id=eq.${LIST_ID}`,
         },
-        () => {
-          fetchTasks()
-        },
+        () => fetchTasks(),
       )
       .subscribe()
 
     return () => {
-      cancelled = true
       supabase.removeChannel(channel)
     }
-  }, [fetchTasks, useCloud])
+  }, [fetchTasks])
 
-  const todayTasks = tasks.filter((t) => isToday(t.createdAt))
-  const pending = todayTasks.filter((t) => !t.completed)
-  const done = todayTasks.filter((t) => t.completed)
-  const now = new Date()
+  const groupedTasks = useMemo(() => {
+    const groups = {}
+
+    tasks.forEach((task) => {
+      const key = task.dueDate || 'No date'
+
+      if (!groups[key]) groups[key] = []
+
+      groups[key].push(task)
+    })
+
+    return groups
+  }, [tasks])
 
   async function addTask(e) {
     e.preventDefault()
+
     const text = draft.trim()
+
     if (!text) return
 
     if (!useCloud) {
@@ -210,234 +180,135 @@ function App() {
           text,
           completed: false,
           createdAt: new Date().toISOString(),
+          dueDate,
         },
         ...prev,
       ])
+
       setDraft('')
-      inputRef.current?.blur()
+      setDueDate('')
       return
     }
 
-    setBusy(true)
-    const { error: dbError } = await supabase.from('tasks').insert({
+    const { error } = await supabase.from('tasks').insert({
       list_id: LIST_ID,
       text,
       completed: false,
+      due_date: dueDate || null,
     })
-    setBusy(false)
 
-    if (dbError) {
-      setError(formatDbError(dbError))
+    if (error) {
+      console.error(formatDbError(error))
       return
     }
+
     setDraft('')
-    inputRef.current?.blur()
-    await fetchTasks()
+    setDueDate('')
+    fetchTasks()
   }
 
   async function toggleTask(id) {
-    if (!useCloud) {
-      setTasks((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t)),
-      )
-      return
-    }
-
     const task = tasks.find((t) => t.id === id)
+
     if (!task) return
 
-    setBusy(true)
-    const { error: dbError } = await supabase
+    await supabase
       .from('tasks')
-      .update({ completed: !task.completed })
+      .update({
+        completed: !task.completed,
+      })
       .eq('id', id)
-      .eq('list_id', LIST_ID)
-    setBusy(false)
 
-    if (dbError) {
-      setError(formatDbError(dbError))
-      return
-    }
-    await fetchTasks()
+    fetchTasks()
   }
 
   async function removeTask(id) {
-    if (!useCloud) {
-      setTasks((prev) => prev.filter((t) => t.id !== id))
-      return
-    }
+    await supabase.from('tasks').delete().eq('id', id)
 
-    setBusy(true)
-    const { error: dbError } = await supabase
-      .from('tasks')
-      .delete()
-      .eq('id', id)
-      .eq('list_id', LIST_ID)
-    setBusy(false)
-
-    if (dbError) {
-      setError(formatDbError(dbError))
-      return
-    }
-    await fetchTasks()
-  }
-
-  function openComposer() {
-    setActiveTab('today')
-    requestAnimationFrame(() => {
-      inputRef.current?.focus()
-      inputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    })
+    fetchTasks()
   }
 
   return (
     <div className="app">
       <header className="header">
-        <p className="header__greeting">Good {getGreeting(now)}</p>
-        <h1 className="header__title">Today</h1>
-        <p className="header__date">{formatHeaderDate(now)}</p>
-        {useCloud && !error && (
-          <p className="header__shared">Shared list — you both see the same tasks</p>
-        )}
+        <p className="header__title">Sun Couple</p>
+        <p className="header__date">
+          {formatHeaderDate(new Date())}
+        </p>
       </header>
 
-      {setupHint && (
-        <div className="status-banner status-banner--info">
-          <p>{setupHint}</p>
-          <ol className="setup-steps">
-            <li>Create a Supabase project and run <code>supabase/schema.sql</code></li>
-            <li>
-              Add GitHub secrets: <code>VITE_SUPABASE_URL</code>,{' '}
-              <code>VITE_SUPABASE_ANON_KEY</code>, <code>VITE_LIST_ID</code>
-            </li>
-            <li>Re-run the Deploy workflow on GitHub Actions</li>
-          </ol>
-        </div>
-      )}
-
-      {error && (
-        <p className="status-banner status-banner--error" role="alert">
-          {error}
-        </p>
-      )}
-
       <main className="main">
-        {activeTab === 'today' ? (
-          <>
-            <form className="composer" onSubmit={addTask}>
-              <span className="composer__dot" aria-hidden="true" />
-              <input
-                ref={inputRef}
-                type="text"
-                className="composer__input"
-                placeholder="Add a task for today…"
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                enterKeyHint="done"
-                autoComplete="off"
-                disabled={busy}
-                aria-label="New task"
+        <form className="composer" onSubmit={addTask}>
+          <input
+            ref={inputRef}
+            type="text"
+            className="composer__input"
+            placeholder="Add task..."
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+          />
+
+          <input
+            type="date"
+            className="composer__date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+          />
+
+          <button className="composer__submit">
+            Add
+          </button>
+        </form>
+
+        {activeTab === 'today' && (
+          <ul className="task-list">
+            {tasks.map((task) => (
+              <TaskRow
+                key={task.id}
+                task={task}
+                onToggle={toggleTask}
+                onRemove={removeTask}
               />
-              <button
-                type="submit"
-                className={`composer__submit${draft.trim() ? '' : ' composer__submit--inactive'}`}
-                aria-disabled={!draft.trim() || busy}
-              >
-                Add
-              </button>
-            </form>
+            ))}
+          </ul>
+        )}
 
-            <section className="section" aria-labelledby="today-heading">
-              <div className="section__head">
-                <h2 id="today-heading" className="section__title">
-                  Today&apos;s tasks
-                </h2>
-                <span className="section__count">{pending.length} left</span>
-              </div>
+        {activeTab === 'calendar' && (
+          <div className="calendar-view">
+            {Object.entries(groupedTasks).map(([date, items]) => (
+              <section key={date} className="calendar-group">
+                <h3 className="calendar-group__title">
+                  {formatDateLabel(date)}
+                </h3>
 
-              {loading ? (
-                <p className="empty empty--loading">Loading shared tasks…</p>
-              ) : todayTasks.length === 0 ? (
-                <div className="empty">
-                  <span className="empty__emoji" aria-hidden="true">
-                    ☀️
-                  </span>
-                  <p className="empty__title">Nothing planned yet</p>
-                  <p className="empty__hint">
-                    {useCloud
-                      ? 'Tap + or type above — your partner will see it too'
-                      : 'Tap + or type above to add your first task'}
-                  </p>
-                </div>
-              ) : (
                 <ul className="task-list">
-                  {pending.map((task) => (
+                  {items.map((task) => (
                     <TaskRow
                       key={task.id}
                       task={task}
-                      busy={busy}
                       onToggle={toggleTask}
                       onRemove={removeTask}
                     />
                   ))}
-                  {done.length > 0 && (
-                    <>
-                      <li className="task-list__divider">
-                        <span>Completed</span>
-                      </li>
-                      {done.map((task) => (
-                        <TaskRow
-                          key={task.id}
-                          task={task}
-                          busy={busy}
-                          onToggle={toggleTask}
-                          onRemove={removeTask}
-                        />
-                      ))}
-                    </>
-                  )}
                 </ul>
-              )}
-            </section>
-          </>
-        ) : (
-          <div className="placeholder">
-            <span className="placeholder__icon" aria-hidden="true">
-              {activeTab === 'calendar' && '📅'}
-              {activeTab === 'inbox' && '📥'}
-              {activeTab === 'settings' && '✨'}
-            </span>
-            <p className="placeholder__title">
-              {NAV_ITEMS.find((n) => n.id === activeTab)?.label}
-            </p>
-            <p className="placeholder__text">
-              Coming soon — focus on Today for now.
-            </p>
+              </section>
+            ))}
           </div>
         )}
       </main>
 
-      <button
-        type="button"
-        className="fab"
-        aria-label="Add task"
-        disabled={busy}
-        onClick={openComposer}
-      >
-        <IconPlus />
-      </button>
-
-      <nav className="bottom-nav" aria-label="Main navigation">
-        {NAV_ITEMS.map(({ id, label, Icon }) => (
+      <nav className="bottom-nav">
+        {NAV_ITEMS.map((item) => (
           <button
-            key={id}
-            type="button"
-            className={`bottom-nav__item${activeTab === id ? ' bottom-nav__item--active' : ''}`}
-            onClick={() => setActiveTab(id)}
-            aria-current={activeTab === id ? 'page' : undefined}
+            key={item.id}
+            className={`bottom-nav__item ${
+              activeTab === item.id
+                ? 'bottom-nav__item--active'
+                : ''
+            }`}
+            onClick={() => setActiveTab(item.id)}
           >
-            <Icon />
-            <span>{label}</span>
+            {item.label}
           </button>
         ))}
       </nav>
