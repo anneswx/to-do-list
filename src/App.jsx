@@ -1,90 +1,31 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import './App.css'
-import { formatDbError, isSupabaseConfigured, LIST_ID, supabase } from './lib/supabase'
-import { loadLocalTasks, newLocalTaskId, rowToTask, saveLocalTasks } from './lib/tasks'
-
-function toDateKey(date) {
-  return date.toISOString().slice(0, 10)
-}
-
-function formatDateLabel(dateString) {
-  if (!dateString) return 'No date'
-
-  const date = new Date(dateString + 'T00:00:00')
-  const today = new Date()
-  const todayKey = toDateKey(today)
-
-  if (dateString === todayKey) return 'Today'
-
-  return date.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-  })
-}
-
-function isOverdue(dateString) {
-  if (!dateString) return false
-  const due = new Date(dateString + 'T00:00:00')
-  const today = new Date()
-  due.setHours(0, 0, 0, 0)
-  today.setHours(0, 0, 0, 0)
-  return due < today
-}
-
-function getMonthDays(monthDate) {
-  const year = monthDate.getFullYear()
-  const month = monthDate.getMonth()
-
-  const firstDay = new Date(year, month, 1)
-  const lastDay = new Date(year, month + 1, 0)
-
-  const days = []
-
-  for (let i = 0; i < firstDay.getDay(); i++) {
-    days.push(null)
-  }
-
-  for (let day = 1; day <= lastDay.getDate(); day++) {
-    days.push(new Date(year, month, day))
-  }
-
-  return days
-}
-
-function TaskRow({ task, onToggle, onRemove }) {
-  return (
-    <li className={`task${task.completed ? ' task--done' : ''}`}>
-      <label className="task__check">
-        <input type="checkbox" checked={task.completed} onChange={() => onToggle(task.id)} />
-        <span className="task__box" />
-      </label>
-
-      <span className="task__text">{task.text}</span>
-
-      <span
-        className={`task__date ${
-          isOverdue(task.dueDate) && !task.completed ? 'task__date--overdue' : ''
-        }`}
-      >
-        {formatDateLabel(task.dueDate)}
-      </span>
-
-      <button className="task__remove" onClick={() => onRemove(task.id)}>
-        ×
-      </button>
-    </li>
-  )
-}
+import {
+  formatDbError,
+  isSupabaseConfigured,
+  LIST_ID,
+  supabase,
+} from './lib/supabase'
+import {
+  loadLocalTasks,
+  newLocalTaskId,
+  rowToTask,
+  saveLocalTasks,
+} from './lib/tasks'
 
 function App() {
   const useCloud = isSupabaseConfigured
   const [tasks, setTasks] = useState(() => (useCloud ? [] : loadLocalTasks()))
-  const [draft, setDraft] = useState('')
-  const [dueDate, setDueDate] = useState('')
-  const [activeTab, setActiveTab] = useState('today')
-  const [calendarMonth, setCalendarMonth] = useState(new Date())
+  const [newTask, setNewTask] = useState('')
+  const [modalTask, setModalTask] = useState(null)
+  const [editingText, setEditingText] = useState('')
+  const [activeSwipeTaskId, setActiveSwipeTaskId] = useState(null)
+  const [swipeTranslate, setSwipeTranslate] = useState(0)
   const [error, setError] = useState(null)
-  const inputRef = useRef(null)
+
+  const swipeStartX = useRef(0)
+  const swipeDragged = useRef(false)
+  const swipeTaskId = useRef(null)
 
   const fetchTasks = useCallback(async () => {
     if (!supabase) return
@@ -93,7 +34,6 @@ function App() {
       .from('tasks')
       .select('*')
       .eq('list_id', LIST_ID)
-      .order('due_date', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: false })
 
     if (dbError) {
@@ -110,7 +50,7 @@ function App() {
   }, [tasks, useCloud])
 
   useEffect(() => {
-    if (!supabase) return
+    if (!supabase) return undefined
 
     fetchTasks()
 
@@ -133,30 +73,10 @@ function App() {
     }
   }, [fetchTasks])
 
-  const todayKey = toDateKey(new Date())
-
-  const todayTasks = tasks.filter((task) => {
-    return task.dueDate === todayKey || (!task.dueDate && toDateKey(new Date(task.createdAt)) === todayKey)
-  })
-
-  const calendarDays = useMemo(() => getMonthDays(calendarMonth), [calendarMonth])
-
-  const tasksByDate = useMemo(() => {
-    const map = {}
-
-    tasks.forEach((task) => {
-      if (!task.dueDate) return
-      if (!map[task.dueDate]) map[task.dueDate] = []
-      map[task.dueDate].push(task)
-    })
-
-    return map
-  }, [tasks])
-
   async function addTask(e) {
     e.preventDefault()
 
-    const text = draft.trim()
+    const text = newTask.trim()
     if (!text) return
 
     if (!useCloud) {
@@ -166,12 +86,11 @@ function App() {
           text,
           completed: false,
           createdAt: new Date().toISOString(),
-          dueDate: dueDate || null,
+          dueDate: null,
         },
         ...prev,
       ])
-      setDraft('')
-      setDueDate('')
+      setNewTask('')
       return
     }
 
@@ -179,7 +98,6 @@ function App() {
       list_id: LIST_ID,
       text,
       completed: false,
-      due_date: dueDate || null,
     })
 
     if (dbError) {
@@ -187,18 +105,16 @@ function App() {
       return
     }
 
-    setDraft('')
-    setDueDate('')
+    setNewTask('')
     fetchTasks()
   }
 
-  async function toggleTask(id) {
-    const task = tasks.find((t) => t.id === id)
-    if (!task) return
-
+  async function toggleTask(task) {
     if (!useCloud) {
       setTasks((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t)),
+        prev.map((item) =>
+          item.id === task.id ? { ...item, completed: !item.completed } : item,
+        ),
       )
       return
     }
@@ -206,7 +122,7 @@ function App() {
     const { error: dbError } = await supabase
       .from('tasks')
       .update({ completed: !task.completed })
-      .eq('id', id)
+      .eq('id', task.id)
       .eq('list_id', LIST_ID)
 
     if (dbError) {
@@ -217,9 +133,94 @@ function App() {
     fetchTasks()
   }
 
-  async function removeTask(id) {
+  function openEditModal(task) {
+    setModalTask(task)
+    setEditingText(task.text)
+  }
+
+  function cancelEdit() {
+    setModalTask(null)
+    setEditingText('')
+  }
+
+  function handlePointerDown(task, event) {
+    swipeStartX.current = event.clientX
+    swipeDragged.current = false
+    swipeTaskId.current = task.id
+    setActiveSwipeTaskId(task.id)
+    setSwipeTranslate(0)
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  function handlePointerMove(task, event) {
+    if (swipeTaskId.current !== task.id) return
+
+    const deltaX = event.clientX - swipeStartX.current
+    const nextTranslate = Math.max(Math.min(deltaX, 0), -88)
+
+    if (Math.abs(deltaX) > 8) {
+      swipeDragged.current = true
+    }
+
+    setSwipeTranslate(nextTranslate)
+  }
+
+  function handlePointerEnd(task) {
+    if (swipeTaskId.current !== task.id) return
+
+    if (swipeTranslate <= -48) {
+      setActiveSwipeTaskId(task.id)
+      setSwipeTranslate(-76)
+    } else {
+      setActiveSwipeTaskId(null)
+      setSwipeTranslate(0)
+    }
+
+    swipeTaskId.current = null
+  }
+
+  function handleRowClick(task) {
+    if (swipeDragged.current) {
+      swipeDragged.current = false
+      return
+    }
+
+    openEditModal(task)
+  }
+
+  async function saveEdit(id) {
+    const text = editingText.trim()
+    if (!text) return
+
     if (!useCloud) {
-      setTasks((prev) => prev.filter((t) => t.id !== id))
+      setTasks((prev) =>
+        prev.map((task) => (task.id === id ? { ...task, text } : task)),
+      )
+      cancelEdit()
+      return
+    }
+
+    const { error: dbError } = await supabase
+      .from('tasks')
+      .update({ text })
+      .eq('id', id)
+      .eq('list_id', LIST_ID)
+
+    if (dbError) {
+      setError(formatDbError(dbError))
+      return
+    }
+
+    cancelEdit()
+    fetchTasks()
+  }
+
+  async function deleteTask(id) {
+    setActiveSwipeTaskId(null)
+    setSwipeTranslate(0)
+
+    if (!useCloud) {
+      setTasks((prev) => prev.filter((task) => task.id !== id))
       return
     }
 
@@ -237,149 +238,111 @@ function App() {
     fetchTasks()
   }
 
-  function changeMonth(offset) {
-    setCalendarMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + offset, 1))
-  }
-
   return (
     <div className="app">
-      <header className="header">
-        <p className="header__greeting">Shared planner</p>
-        <h1 className="header__title">A & L Planning</h1>
-        <p className="header__date">
-          {new Date().toLocaleDateString(undefined, {
-            weekday: 'long',
-            month: 'long',
-            day: 'numeric',
-          })}
-        </p>
-      </header>
+      <main className="container">
+        <header className="header">
+          <h1>A & L Planning</h1>
+          <p>Simple shared to-do list</p>
+        </header>
 
-      {error && (
-        <p className="status-banner status-banner--error" role="alert">
-          {error}
-        </p>
-      )}
+        {error && <div className="error">{error}</div>}
 
-      <main className="main">
-        <form className="composer composer--stacked" onSubmit={addTask}>
-          <div className="composer__top">
-            <span className="composer__dot" />
-            <input
-              ref={inputRef}
-              type="text"
-              className="composer__input"
-              placeholder="Add a task..."
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-            />
-            <button className="composer__submit" type="submit">
-              Add
-            </button>
-          </div>
-
-          <label className="due-picker">
-            <span>Due date</span>
-            <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-          </label>
+        <form className="add-form" onSubmit={addTask}>
+          <input
+            type="text"
+            value={newTask}
+            onChange={(e) => setNewTask(e.target.value)}
+            placeholder="Add a new task"
+          />
+          <button type="submit">Add</button>
         </form>
 
-        {activeTab === 'today' && (
-          <section className="section">
-            <div className="section__head">
-              <h2 className="section__title">Today</h2>
-              <span className="section__count">{todayTasks.length} tasks</span>
+        <div className="table-card">
+          <div className="task-table">
+            <div className="task-table__header">
+              <div>Status</div>
+              <div>Task</div>
+              <div>Created</div>
             </div>
 
-            {todayTasks.length === 0 ? (
-              <div className="empty">
-                <span className="empty__emoji">☀️</span>
-                <p className="empty__title">Nothing due today</p>
-                <p className="empty__hint">Add a task and choose a due date.</p>
-              </div>
+            {tasks.length === 0 ? (
+              <div className="empty">No tasks yet.</div>
             ) : (
-              <ul className="task-list">
-                {todayTasks.map((task) => (
-                  <TaskRow key={task.id} task={task} onToggle={toggleTask} onRemove={removeTask} />
-                ))}
-              </ul>
-            )}
-          </section>
-        )}
-
-        {activeTab === 'calendar' && (
-          <section className="calendar-view">
-            <div className="calendar-header">
-              <button type="button" onClick={() => changeMonth(-1)}>
-                ‹
-              </button>
-
-              <h2>
-                {calendarMonth.toLocaleDateString(undefined, {
-                  month: 'long',
-                  year: 'numeric',
-                })}
-              </h2>
-
-              <button type="button" onClick={() => changeMonth(1)}>
-                ›
-              </button>
-            </div>
-
-            <div className="calendar-weekdays">
-              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-                <span key={day}>{day}</span>
-              ))}
-            </div>
-
-            <div className="month-grid">
-              {calendarDays.map((day, index) => {
-                if (!day) return <div key={`empty-${index}`} className="month-day month-day--empty" />
-
-                const key = toDateKey(day)
-                const dayTasks = tasksByDate[key] ?? []
-                const isCurrentDay = key === todayKey
+              tasks.map((task) => {
+                const isActive = activeSwipeTaskId === task.id
+                const translate = isActive ? swipeTranslate : 0
 
                 return (
-                  <div key={key} className={`month-day${isCurrentDay ? ' month-day--today' : ''}`}>
-                    <div className="month-day__number">{day.getDate()}</div>
+                  <div className="swipe-row" key={task.id}>
+                    <button
+                      type="button"
+                      className="delete-action"
+                      onClick={() => deleteTask(task.id)}
+                      aria-label={`Delete ${task.text}`}
+                    >
+                      ×
+                    </button>
 
-                    <div className="month-day__tasks">
-                      {dayTasks.slice(0, 3).map((task) => (
-                        <div key={task.id} className={`month-task${task.completed ? ' month-task--done' : ''}`}>
+                    <div
+                      className="task-row"
+                      onPointerDown={(e) => handlePointerDown(task, e)}
+                      onPointerMove={(e) => handlePointerMove(task, e)}
+                      onPointerUp={() => handlePointerEnd(task)}
+                      onPointerCancel={() => handlePointerEnd(task)}
+                      onClick={() => handleRowClick(task)}
+                      style={{ transform: `translateX(${translate}px)` }}
+                    >
+                      <div>
+                        <input
+                          type="checkbox"
+                          checked={task.completed}
+                          onChange={() => toggleTask(task)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </div>
+
+                      <div>
+                        <span className={task.completed ? 'done' : ''}>
                           {task.text}
-                        </div>
-                      ))}
+                        </span>
+                      </div>
 
-                      {dayTasks.length > 3 && (
-                        <div className="month-task month-task--more">
-                          +{dayTasks.length - 3} more
-                        </div>
-                      )}
+                      <div>
+                        {new Date(task.createdAt).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                        })}
+                      </div>
                     </div>
                   </div>
                 )
-              })}
+              })
+            )}
+          </div>
+        </div>
+
+        {modalTask && (
+          <div className="modal-backdrop" onClick={cancelEdit}>
+            <div className="modal" onClick={(e) => e.stopPropagation()}>
+              <h2>Edit task</h2>
+
+              <input
+                className="edit-input"
+                value={editingText}
+                onChange={(e) => setEditingText(e.target.value)}
+              />
+
+              <div className="modal-actions">
+                <button onClick={() => saveEdit(modalTask.id)}>Save</button>
+                <button className="secondary" onClick={cancelEdit}>
+                  Cancel
+                </button>
+              </div>
             </div>
-          </section>
+          </div>
         )}
       </main>
-
-      <nav className="bottom-nav">
-        <button
-          className={`bottom-nav__item${activeTab === 'today' ? ' bottom-nav__item--active' : ''}`}
-          onClick={() => setActiveTab('today')}
-        >
-          <span>Today</span>
-        </button>
-
-        <button
-          className={`bottom-nav__item${activeTab === 'calendar' ? ' bottom-nav__item--active' : ''}`}
-          onClick={() => setActiveTab('calendar')}
-        >
-          <span>Calendar</span>
-        </button>
-      </nav>
     </div>
   )
 }
