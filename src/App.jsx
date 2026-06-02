@@ -1,11 +1,22 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import './App.css'
+// ============================================================
+// 1. Imports
+// ============================================================
+import { useCallback, useEffect, useState } from 'react'
+import './styles/app.css'
+import './styles/tasks.css'
+import './styles/modal.css'
+
+import AddTaskForm from './components/AddTaskForm'
+import TaskTable from './components/TaskTable'
+import EditTaskModal from './components/EditTaskModal'
+
 import {
   formatDbError,
   isSupabaseConfigured,
   LIST_ID,
   supabase,
 } from './lib/supabase'
+
 import {
   loadLocalTasks,
   newLocalTaskId,
@@ -13,20 +24,24 @@ import {
   saveLocalTasks,
 } from './lib/tasks'
 
+// ============================================================
+// 2. Main App Component
+// ============================================================
 function App() {
   const useCloud = isSupabaseConfigured
+
+  // ============================================================
+  // 3. State
+  // ============================================================
   const [tasks, setTasks] = useState(() => (useCloud ? [] : loadLocalTasks()))
   const [newTask, setNewTask] = useState('')
   const [modalTask, setModalTask] = useState(null)
   const [editingText, setEditingText] = useState('')
-  const [activeSwipeTaskId, setActiveSwipeTaskId] = useState(null)
-  const [swipeTranslate, setSwipeTranslate] = useState(0)
   const [error, setError] = useState(null)
 
-  const swipeStartX = useRef(0)
-  const swipeDragged = useRef(false)
-  const swipeTaskId = useRef(null)
-
+  // ============================================================
+  // 4. Fetch Tasks from Supabase
+  // ============================================================
   const fetchTasks = useCallback(async () => {
     if (!supabase) return
 
@@ -45,10 +60,18 @@ function App() {
     setError(null)
   }, [])
 
+  // ============================================================
+  // 5. Save Local Tasks When Supabase Is Not Configured
+  // ============================================================
   useEffect(() => {
-    if (!useCloud) saveLocalTasks(tasks)
+    if (!useCloud) {
+      saveLocalTasks(tasks)
+    }
   }, [tasks, useCloud])
 
+  // ============================================================
+  // 6. Initial Load + Supabase Realtime Sync
+  // ============================================================
   useEffect(() => {
     if (!supabase) return undefined
 
@@ -73,6 +96,9 @@ function App() {
     }
   }, [fetchTasks])
 
+  // ============================================================
+  // 7. Add Task
+  // ============================================================
   async function addTask(e) {
     e.preventDefault()
 
@@ -109,6 +135,9 @@ function App() {
     fetchTasks()
   }
 
+  // ============================================================
+  // 8. Toggle Task Complete / Incomplete
+  // ============================================================
   async function toggleTask(task) {
     if (!useCloud) {
       setTasks((prev) =>
@@ -133,6 +162,9 @@ function App() {
     fetchTasks()
   }
 
+  // ============================================================
+  // 9. Open / Close Edit Modal
+  // ============================================================
   function openEditModal(task) {
     setModalTask(task)
     setEditingText(task.text)
@@ -143,51 +175,9 @@ function App() {
     setEditingText('')
   }
 
-  function handlePointerDown(task, event) {
-    swipeStartX.current = event.clientX
-    swipeDragged.current = false
-    swipeTaskId.current = task.id
-    setActiveSwipeTaskId(task.id)
-    setSwipeTranslate(0)
-    event.currentTarget.setPointerCapture(event.pointerId)
-  }
-
-  function handlePointerMove(task, event) {
-    if (swipeTaskId.current !== task.id) return
-
-    const deltaX = event.clientX - swipeStartX.current
-    const nextTranslate = Math.max(Math.min(deltaX, 0), -88)
-
-    if (Math.abs(deltaX) > 8) {
-      swipeDragged.current = true
-    }
-
-    setSwipeTranslate(nextTranslate)
-  }
-
-  function handlePointerEnd(task) {
-    if (swipeTaskId.current !== task.id) return
-
-    if (swipeTranslate <= -48) {
-      setActiveSwipeTaskId(task.id)
-      setSwipeTranslate(-76)
-    } else {
-      setActiveSwipeTaskId(null)
-      setSwipeTranslate(0)
-    }
-
-    swipeTaskId.current = null
-  }
-
-  function handleRowClick(task) {
-    if (swipeDragged.current) {
-      swipeDragged.current = false
-      return
-    }
-
-    openEditModal(task)
-  }
-
+  // ============================================================
+  // 10. Save Edited Task
+  // ============================================================
   async function saveEdit(id) {
     const text = editingText.trim()
     if (!text) return
@@ -215,12 +205,13 @@ function App() {
     fetchTasks()
   }
 
+  // ============================================================
+  // 11. Delete Task
+  // ============================================================
   async function deleteTask(id) {
-    setActiveSwipeTaskId(null)
-    setSwipeTranslate(0)
-
     if (!useCloud) {
       setTasks((prev) => prev.filter((task) => task.id !== id))
+      cancelEdit()
       return
     }
 
@@ -235,9 +226,13 @@ function App() {
       return
     }
 
+    cancelEdit()
     fetchTasks()
   }
 
+  // ============================================================
+  // 12. Render
+  // ============================================================
   return (
     <div className="app">
       <main className="container">
@@ -248,103 +243,34 @@ function App() {
 
         {error && <div className="error">{error}</div>}
 
-        <form className="add-form" onSubmit={addTask}>
-          <input
-            type="text"
-            value={newTask}
-            onChange={(e) => setNewTask(e.target.value)}
-            placeholder="Add a new task"
-          />
-          <button type="submit">Add</button>
-        </form>
+        <AddTaskForm
+          newTask={newTask}
+          setNewTask={setNewTask}
+          onAddTask={addTask}
+        />
 
-        <div className="table-card">
-          <div className="task-table">
-            <div className="task-table__header">
-              <div>Status</div>
-              <div>Task</div>
-              <div>Created</div>
-            </div>
-
-            {tasks.length === 0 ? (
-              <div className="empty">No tasks yet.</div>
-            ) : (
-              tasks.map((task) => {
-                const isActive = activeSwipeTaskId === task.id
-                const translate = isActive ? swipeTranslate : 0
-
-                return (
-                  <div className="swipe-row" key={task.id}>
-                    <button
-                      type="button"
-                      className="delete-action"
-                      onClick={() => deleteTask(task.id)}
-                      aria-label={`Delete ${task.text}`}
-                    >
-                      ×
-                    </button>
-
-                    <div
-                      className="task-row"
-                      onPointerDown={(e) => handlePointerDown(task, e)}
-                      onPointerMove={(e) => handlePointerMove(task, e)}
-                      onPointerUp={() => handlePointerEnd(task)}
-                      onPointerCancel={() => handlePointerEnd(task)}
-                      onClick={() => handleRowClick(task)}
-                      style={{ transform: `translateX(${translate}px)` }}
-                    >
-                      <div>
-                        <input
-                          type="checkbox"
-                          checked={task.completed}
-                          onChange={() => toggleTask(task)}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      </div>
-
-                      <div>
-                        <span className={task.completed ? 'done' : ''}>
-                          {task.text}
-                        </span>
-                      </div>
-
-                      <div>
-                        {new Date(task.createdAt).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                )
-              })
-            )}
-          </div>
-        </div>
+        <TaskTable
+          tasks={tasks}
+          onToggleTask={toggleTask}
+          onDeleteTask={deleteTask}
+          onOpenEditModal={openEditModal}
+        />
 
         {modalTask && (
-          <div className="modal-backdrop" onClick={cancelEdit}>
-            <div className="modal" onClick={(e) => e.stopPropagation()}>
-              <h2>Edit task</h2>
-
-              <input
-                className="edit-input"
-                value={editingText}
-                onChange={(e) => setEditingText(e.target.value)}
-              />
-
-              <div className="modal-actions">
-                <button onClick={() => saveEdit(modalTask.id)}>Save</button>
-                <button className="secondary" onClick={cancelEdit}>
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
+          <EditTaskModal
+            editingText={editingText}
+            setEditingText={setEditingText}
+            onSave={() => saveEdit(modalTask.id)}
+            onCancel={cancelEdit}
+            onDelete={() => deleteTask(modalTask.id)}
+          />
         )}
       </main>
     </div>
   )
 }
 
+// ============================================================
+// 13. Export
+// ============================================================
 export default App

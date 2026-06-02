@@ -1,0 +1,83 @@
+.table-card {
+  overflow: hidden;
+  background: white;
+  border: 1px solid #dbe7f2;
+  border-radius: 18px;
+  box-shadow: 0 8px 32px rgba(36, 52, 71, 0.08);
+}
+
+.task-table {
+  width: 100%;
+}
+
+.task-table__header {
+  display: grid;
+  grid-template-columns: 90px 1fr 120px;
+  gap: 0;
+  padding: 14px 16px;
+  border-bottom: 1px solid #edf3f8;
+  background: #f8fbfe;
+  font-size: 13px;
+  font-weight: 700;
+  color: #6f8194;
+}
+
+.swipe-row {
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid #edf3f8;
+  background: #e88484;
+}
+
+.swipe-row:last-child {
+  border-bottom: none;
+}
+
+.task-row {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 90px 1fr 120px;
+  align-items: center;
+  min-height: 56px;
+  padding: 14px 16px;
+  background: white;
+  cursor: pointer;
+  touch-action: pan-y;
+  transition: transform 0.18s ease;
+  user-select: none;
+}
+
+.delete-action {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 76px;
+  border: none;
+  background: #e88484;
+  color: white;
+  font-size: 34px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.delete-action:active {
+  background: #d66464;
+}
+
+.done {
+  color: #9eb0c1;
+  text-decoration: line-through;
+}
+
+@media (max-width: 640px) {
+  .task-table__header,
+  .task-row {
+    grid-template-columns: 70px 1fr 90px;
+    padding: 12px;
+  }
+}
