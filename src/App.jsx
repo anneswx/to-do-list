@@ -1,14 +1,16 @@
 // ============================================================
 // 1. Imports
 // ============================================================
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import './styles/app.css'
 import './styles/tasks.css'
 import './styles/modal.css'
+import './styles/calendar.css'
 
 import AddTaskForm from './components/AddTaskForm'
 import TaskTable from './components/TaskTable'
 import EditTaskModal from './components/EditTaskModal'
+import DatePickerSheet from './components/DatePickerSheet'
 
 import {
   formatDbError,
@@ -25,22 +27,47 @@ import {
 } from './lib/tasks'
 
 // ============================================================
-// 2. Main App Component
+// 2. Sort Tasks
+// ============================================================
+function sortTasks(tasks) {
+  return [...tasks].sort((a, b) => {
+    if (a.pinned !== b.pinned) {
+      return a.pinned ? -1 : 1
+    }
+
+    if (a.dueDate && b.dueDate) {
+      return b.dueDate.localeCompare(a.dueDate)
+    }
+
+    if (a.dueDate && !b.dueDate) return -1
+    if (!a.dueDate && b.dueDate) return 1
+
+    return new Date(b.createdAt) - new Date(a.createdAt)
+  })
+}
+
+// ============================================================
+// 3. Main App Component
 // ============================================================
 function App() {
   const useCloud = isSupabaseConfigured
 
   // ============================================================
-  // 3. State
+  // 4. State
   // ============================================================
   const [tasks, setTasks] = useState(() => (useCloud ? [] : loadLocalTasks()))
   const [newTask, setNewTask] = useState('')
+  const [newTaskDueDate, setNewTaskDueDate] = useState('')
   const [modalTask, setModalTask] = useState(null)
   const [editingText, setEditingText] = useState('')
+  const [editingDueDate, setEditingDueDate] = useState('')
+  const [datePickerMode, setDatePickerMode] = useState(null)
   const [error, setError] = useState(null)
 
+  const sortedTasks = useMemo(() => sortTasks(tasks), [tasks])
+
   // ============================================================
-  // 4. Fetch Tasks from Supabase
+  // 5. Fetch Tasks from Supabase
   // ============================================================
   const fetchTasks = useCallback(async () => {
     if (!supabase) return
@@ -49,6 +76,8 @@ function App() {
       .from('tasks')
       .select('*')
       .eq('list_id', LIST_ID)
+      .order('pinned', { ascending: false })
+      .order('due_date', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false })
 
     if (dbError) {
@@ -61,7 +90,7 @@ function App() {
   }, [])
 
   // ============================================================
-  // 5. Save Local Tasks When Supabase Is Not Configured
+  // 6. Save Local Tasks When Supabase Is Not Configured
   // ============================================================
   useEffect(() => {
     if (!useCloud) {
@@ -70,7 +99,7 @@ function App() {
   }, [tasks, useCloud])
 
   // ============================================================
-  // 6. Initial Load + Supabase Realtime Sync
+  // 7. Initial Load + Supabase Realtime Sync
   // ============================================================
   useEffect(() => {
     if (!supabase) return undefined
@@ -97,7 +126,7 @@ function App() {
   }, [fetchTasks])
 
   // ============================================================
-  // 7. Add Task
+  // 8. Add Task
   // ============================================================
   async function addTask(e) {
     e.preventDefault()
@@ -112,11 +141,14 @@ function App() {
           text,
           completed: false,
           createdAt: new Date().toISOString(),
-          dueDate: null,
+          dueDate: newTaskDueDate || null,
+          pinned: false,
         },
         ...prev,
       ])
+
       setNewTask('')
+      setNewTaskDueDate('')
       return
     }
 
@@ -124,6 +156,8 @@ function App() {
       list_id: LIST_ID,
       text,
       completed: false,
+      due_date: newTaskDueDate || null,
+      pinned: false,
     })
 
     if (dbError) {
@@ -132,11 +166,12 @@ function App() {
     }
 
     setNewTask('')
+    setNewTaskDueDate('')
     fetchTasks()
   }
 
   // ============================================================
-  // 8. Toggle Task Complete / Incomplete
+  // 9. Toggle Task Complete / Incomplete
   // ============================================================
   async function toggleTask(task) {
     if (!useCloud) {
@@ -163,20 +198,49 @@ function App() {
   }
 
   // ============================================================
-  // 9. Open / Close Edit Modal
+  // 10. Toggle Pin / Unpin
+  // ============================================================
+  async function togglePin(task) {
+    if (!useCloud) {
+      setTasks((prev) =>
+        prev.map((item) =>
+          item.id === task.id ? { ...item, pinned: !item.pinned } : item,
+        ),
+      )
+      return
+    }
+
+    const { error: dbError } = await supabase
+      .from('tasks')
+      .update({ pinned: !task.pinned })
+      .eq('id', task.id)
+      .eq('list_id', LIST_ID)
+
+    if (dbError) {
+      setError(formatDbError(dbError))
+      return
+    }
+
+    fetchTasks()
+  }
+
+  // ============================================================
+  // 11. Open / Close Edit Modal
   // ============================================================
   function openEditModal(task) {
     setModalTask(task)
     setEditingText(task.text)
+    setEditingDueDate(task.dueDate || '')
   }
 
   function cancelEdit() {
     setModalTask(null)
     setEditingText('')
+    setEditingDueDate('')
   }
 
   // ============================================================
-  // 10. Save Edited Task
+  // 12. Save Edited Task
   // ============================================================
   async function saveEdit(id) {
     const text = editingText.trim()
@@ -184,7 +248,11 @@ function App() {
 
     if (!useCloud) {
       setTasks((prev) =>
-        prev.map((task) => (task.id === id ? { ...task, text } : task)),
+        prev.map((task) =>
+          task.id === id
+            ? { ...task, text, dueDate: editingDueDate || null }
+            : task,
+        ),
       )
       cancelEdit()
       return
@@ -192,7 +260,10 @@ function App() {
 
     const { error: dbError } = await supabase
       .from('tasks')
-      .update({ text })
+      .update({
+        text,
+        due_date: editingDueDate || null,
+      })
       .eq('id', id)
       .eq('list_id', LIST_ID)
 
@@ -205,13 +276,16 @@ function App() {
     fetchTasks()
   }
 
-  // ============================================================
-  // 11. Delete Task
+  /// ============================================================
+  // 13. Delete Task
   // ============================================================
   async function deleteTask(id) {
+    // Optimistic UI update: remove from screen immediately
+    const previousTasks = tasks
+    setTasks((prev) => prev.filter((task) => task.id !== id))
+    cancelEdit()
+
     if (!useCloud) {
-      setTasks((prev) => prev.filter((task) => task.id !== id))
-      cancelEdit()
       return
     }
 
@@ -222,16 +296,54 @@ function App() {
       .eq('list_id', LIST_ID)
 
     if (dbError) {
+      // Restore the task if delete fails
+      setTasks(previousTasks)
       setError(formatDbError(dbError))
       return
     }
 
-    cancelEdit()
     fetchTasks()
   }
 
   // ============================================================
-  // 12. Render
+  // 14. Date Picker Handlers
+  // ============================================================
+  function openNewTaskDatePicker() {
+    setDatePickerMode('new-task')
+  }
+
+  function openEditDatePicker() {
+    setDatePickerMode('edit-task')
+  }
+
+  function closeDatePicker() {
+    setDatePickerMode(null)
+  }
+
+  function updateDatePickerValue(value) {
+    if (datePickerMode === 'new-task') {
+      setNewTaskDueDate(value)
+    }
+
+    if (datePickerMode === 'edit-task') {
+      setEditingDueDate(value)
+    }
+  }
+
+  function clearDatePickerValue() {
+    if (datePickerMode === 'new-task') {
+      setNewTaskDueDate('')
+    }
+
+    if (datePickerMode === 'edit-task') {
+      setEditingDueDate('')
+    }
+
+    closeDatePicker()
+  }
+
+  // ============================================================
+  // 15. Render
   // ============================================================
   return (
     <div className="app">
@@ -246,12 +358,15 @@ function App() {
         <AddTaskForm
           newTask={newTask}
           setNewTask={setNewTask}
+          dueDate={newTaskDueDate}
+          onOpenDatePicker={openNewTaskDatePicker}
           onAddTask={addTask}
         />
 
         <TaskTable
-          tasks={tasks}
+          tasks={sortedTasks}
           onToggleTask={toggleTask}
+          onTogglePin={togglePin}
           onDeleteTask={deleteTask}
           onOpenEditModal={openEditModal}
         />
@@ -260,9 +375,27 @@ function App() {
           <EditTaskModal
             editingText={editingText}
             setEditingText={setEditingText}
+            editingDueDate={editingDueDate}
+            onOpenDatePicker={openEditDatePicker}
             onSave={() => saveEdit(modalTask.id)}
             onCancel={cancelEdit}
             onDelete={() => deleteTask(modalTask.id)}
+          />
+        )}
+
+        {datePickerMode && (
+          <DatePickerSheet
+            title={
+              datePickerMode === 'new-task'
+                ? 'Choose due date'
+                : 'Edit due date'
+            }
+            value={
+              datePickerMode === 'new-task' ? newTaskDueDate : editingDueDate
+            }
+            onChange={updateDatePickerValue}
+            onClose={closeDatePicker}
+            onClear={clearDatePickerValue}
           />
         )}
       </main>
@@ -271,6 +404,6 @@ function App() {
 }
 
 // ============================================================
-// 13. Export
+// 16. Export
 // ============================================================
 export default App

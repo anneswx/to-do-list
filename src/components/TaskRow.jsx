@@ -1,6 +1,30 @@
+// ============================================================
+// 1. Imports
+// ============================================================
 import { useRef, useState } from 'react'
 
-function TaskRow({ task, onToggleTask, onDeleteTask, onOpenEditModal }) {
+// ============================================================
+// 2. Helpers
+// ============================================================
+function formatDueDate(dateString) {
+  if (!dateString) return ''
+
+  return new Date(`${dateString}T00:00:00`).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
+// ============================================================
+// 3. Task Row Component
+// ============================================================
+function TaskRow({
+  task,
+  onToggleTask,
+  onTogglePin,
+  onDeleteTask,
+  onOpenEditModal,
+}) {
   const [translateX, setTranslateX] = useState(0)
   const [isOpen, setIsOpen] = useState(false)
 
@@ -88,15 +112,27 @@ function TaskRow({ task, onToggleTask, onDeleteTask, onOpenEditModal }) {
           <span className={task.completed ? 'done' : ''}>{task.text}</span>
         </div>
 
+        <div className="due-date-cell">{formatDueDate(task.dueDate)}</div>
+
         <div>
-          {new Date(task.createdAt).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-          })}
+          <button
+            type="button"
+            className={`pin-button${task.pinned ? ' pin-button--pinned' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation()
+              onTogglePin(task)
+            }}
+            aria-label={task.pinned ? 'Unpin task' : 'Pin task'}
+          >
+            {task.pinned ? '📌' : '📍'}
+          </button>
         </div>
       </div>
     </div>
   )
 }
 
+// ============================================================
+// 4. Export
+// ============================================================
 export default TaskRow

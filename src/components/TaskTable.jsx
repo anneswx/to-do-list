@@ -1,13 +1,26 @@
+// ============================================================
+// 1. Imports
+// ============================================================
 import TaskRow from './TaskRow'
 
-function TaskTable({ tasks, onToggleTask, onDeleteTask, onOpenEditModal }) {
+// ============================================================
+// 2. Task Table Component
+// ============================================================
+function TaskTable({
+  tasks,
+  onToggleTask,
+  onTogglePin,
+  onDeleteTask,
+  onOpenEditModal,
+}) {
   return (
     <div className="table-card">
       <div className="task-table">
         <div className="task-table__header">
           <div>Status</div>
           <div>Task</div>
-          <div>Created</div>
+          <div>Due</div>
+          <div>Pin</div>
         </div>
 
         {tasks.length === 0 ? (
@@ -18,6 +31,7 @@ function TaskTable({ tasks, onToggleTask, onDeleteTask, onOpenEditModal }) {
               key={task.id}
               task={task}
               onToggleTask={onToggleTask}
+              onTogglePin={onTogglePin}
               onDeleteTask={onDeleteTask}
               onOpenEditModal={onOpenEditModal}
             />
@@ -28,4 +42,7 @@ function TaskTable({ tasks, onToggleTask, onDeleteTask, onOpenEditModal }) {
   )
 }
 
+// ============================================================
+// 3. Export
+// ============================================================
 export default TaskTable

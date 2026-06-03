@@ -1,3 +1,7 @@
+/* ============================================================
+   1. Table Card
+   ============================================================ */
+
 .table-card {
   overflow: hidden;
   background: white;
@@ -6,13 +10,17 @@
   box-shadow: 0 8px 32px rgba(36, 52, 71, 0.08);
 }
 
+/* ============================================================
+   2. Task Table
+   ============================================================ */
+
 .task-table {
   width: 100%;
 }
 
 .task-table__header {
   display: grid;
-  grid-template-columns: 90px 1fr 120px;
+  grid-template-columns: 80px 1fr 120px 70px;
   gap: 0;
   padding: 14px 16px;
   border-bottom: 1px solid #edf3f8;
@@ -21,6 +29,10 @@
   font-weight: 700;
   color: #6f8194;
 }
+
+/* ============================================================
+   3. Swipe Row
+   ============================================================ */
 
 .swipe-row {
   position: relative;
@@ -33,11 +45,15 @@
   border-bottom: none;
 }
 
+/* ============================================================
+   4. Task Row
+   ============================================================ */
+
 .task-row {
   position: relative;
   z-index: 2;
   display: grid;
-  grid-template-columns: 90px 1fr 120px;
+  grid-template-columns: 80px 1fr 120px 70px;
   align-items: center;
   min-height: 56px;
   padding: 14px 16px;
@@ -47,6 +63,14 @@
   transition: transform 0.18s ease;
   user-select: none;
 }
+
+.task-row:hover {
+  background: #fbfdff;
+}
+
+/* ============================================================
+   5. Delete Action
+   ============================================================ */
 
 .delete-action {
   position: absolute;
@@ -69,15 +93,58 @@
   background: #d66464;
 }
 
+/* ============================================================
+   6. Completed Task
+   ============================================================ */
+
 .done {
   color: #9eb0c1;
   text-decoration: line-through;
 }
 
+/* ============================================================
+   7. Due Date Cell
+   ============================================================ */
+
+.due-date-cell {
+  color: #6f8194;
+  font-size: 14px;
+}
+
+/* ============================================================
+   8. Pin Button
+   ============================================================ */
+
+.pin-button {
+  border: none;
+  background: transparent;
+  color: #9eb0c1;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.pin-button--pinned {
+  color: #e88b4a;
+}
+
+/* ============================================================
+   9. Mobile Layout
+   ============================================================ */
+
 @media (max-width: 640px) {
   .task-table__header,
   .task-row {
-    grid-template-columns: 70px 1fr 90px;
+    grid-template-columns: 58px 1fr 78px 48px;
     padding: 12px;
+    font-size: 13px;
+  }
+
+  .due-date-cell {
+    font-size: 12px;
+  }
+
+  .pin-button {
+    font-size: 18px;
   }
 }

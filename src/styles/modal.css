@@ -47,7 +47,7 @@
 }
 
 /* ============================================================
-   4. Close Button (Top Right X)
+   4. Close Button
    ============================================================ */
 
 .modal-close {
@@ -62,16 +62,41 @@
   cursor: pointer;
 }
 
-.modal-close:hover {
-  color: #243447;
-}
-
+.modal-close:hover,
 .modal-close:active {
   color: #243447;
 }
 
 /* ============================================================
-   5. Action Buttons Row
+   5. Editable Due Date
+   ============================================================ */
+
+.editable-due-date {
+  width: 100%;
+  margin-top: 12px;
+  border: 1px solid #f0cfae;
+  background: #fff8f0;
+  color: #243447;
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.editable-due-date span {
+  color: #9a6a3a;
+  font-weight: 600;
+}
+
+.editable-due-date strong {
+  color: #d47a34;
+}
+
+/* ============================================================
+   6. Action Buttons Row
    ============================================================ */
 
 .modal-actions {
@@ -89,15 +114,6 @@
   color: white;
   font-weight: 700;
   cursor: pointer;
-}
-
-/* ============================================================
-   6. Secondary Button
-   ============================================================ */
-
-button.secondary {
-  background: #dbe7f2;
-  color: #243447;
 }
 
 /* ============================================================
