@@ -1,0 +1,107 @@
+/* ============================================================
+   1. Shared Sheet Action Row
+   Used by:
+   - Add Task Sheet
+   - Edit Task Sheet
+   - Future Event Sheet
+   - Future Meal Sheet
+   ============================================================ */
+
+.sheet-actions {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+/* ============================================================
+   2. Shared Sheet Icon Button
+   ============================================================ */
+
+.sheet-icon-action {
+  border: none;
+  background: transparent;
+  color: #9eb0c1;
+  cursor: pointer;
+  padding: 0;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  font: inherit;
+  font-size: 16px;
+}
+
+.sheet-icon-action--active {
+  color: #4f6df5;
+}
+
+.sheet-icon-action--pinned {
+  color: #e88b4a;
+}
+
+.sheet-icon-action__svg,
+.pin-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.sheet-icon-action span {
+  font-weight: 600;
+}
+
+/* ============================================================
+   3. Submit Circle
+   Used by Add Task Sheet
+   ============================================================ */
+
+.sheet-submit-circle {
+  margin-left: auto;
+
+  width: 34px;
+  height: 34px;
+
+  border: none;
+  border-radius: 50%;
+
+  background: #4f6df5;
+  color: white;
+
+  cursor: pointer;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sheet-submit-circle__svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* ============================================================
+   4. Delete Icon
+   Used by Edit Task Sheet
+   ============================================================ */
+
+.sheet-delete-icon {
+  margin-left: auto;
+
+  border: none;
+  background: transparent;
+
+  color: #e88484;
+
+  cursor: pointer;
+
+  padding: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sheet-delete-icon__svg {
+  width: 24px;
+  height: 24px;
+}

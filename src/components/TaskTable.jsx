@@ -19,7 +19,7 @@ function TaskTable({
         <div className="task-table__header">
           <div>Status</div>
           <div>Task</div>
-          <div>Due</div>
+          <div>Date</div>
           <div>Pin</div>
         </div>
 

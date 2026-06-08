@@ -1,0 +1,193 @@
+/* ============================================================
+   1. Calendar Page
+   ============================================================ */
+
+.calendar-page {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* ============================================================
+   2. Calendar Base
+   ============================================================ */
+
+.react-calendar {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  color: #243447;
+}
+
+/* ============================================================
+   3. Calendar Navigation
+   ============================================================ */
+
+.react-calendar__navigation {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.react-calendar__navigation button {
+  border: none;
+  background: transparent;
+  color: #243447;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  padding: 8px;
+  cursor: pointer;
+}
+
+.react-calendar__navigation button:hover {
+  background: transparent;
+}
+
+.react-calendar__navigation button:disabled {
+  background: transparent;
+}
+
+/* ============================================================
+   4. Weekday Header
+   ============================================================ */
+
+.react-calendar__month-view__weekdays {
+  text-align: center;
+  text-transform: uppercase;
+  color: #9eb0c1;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.react-calendar__month-view__weekdays abbr {
+  text-decoration: none;
+}
+
+/* ============================================================
+   5. Month Grid
+   ============================================================ */
+
+.react-calendar__month-view__days {
+  display: grid !important;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0;
+}
+
+/* ============================================================
+   6. Day Cell
+   ============================================================ */
+
+.react-calendar__tile {
+  border: none;
+  background: transparent;
+  border-radius: 0;
+
+  color: #243447;
+  font: inherit;
+
+  min-height: calc((100vh - 230px) / 6);
+
+  padding: 8px 4px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+
+  cursor: pointer;
+}
+
+.react-calendar__tile abbr {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.react-calendar__tile:enabled:hover {
+  background: transparent;
+}
+
+.react-calendar__tile:enabled:focus {
+  background: transparent;
+}
+
+.react-calendar__tile--active {
+  background: transparent !important;
+  color: inherit !important;
+}
+
+.react-calendar__tile--now {
+  background: transparent;
+}
+
+.react-calendar__tile--now abbr {
+  color: #4f6df5;
+  font-weight: 800;
+}
+
+/* ============================================================
+   7. Neighboring Month Days
+   ============================================================ */
+
+.react-calendar__month-view__days__day--neighboringMonth {
+  color: #c0cad5;
+}
+
+/* ============================================================
+   8. Tasks Inside Day
+   ============================================================ */
+
+.calendar-day-tasks {
+  width: 100%;
+  margin-top: 4px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.calendar-day-task {
+  width: 100%;
+
+  background: #e8f0ff;
+  color: #4f6df5;
+
+  border-radius: 5px;
+
+  padding: 2px 4px;
+
+  font-size: 10px;
+  font-weight: 600;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.calendar-day-more {
+  color: #6f8194;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* ============================================================
+   9. Mobile Layout
+   ============================================================ */
+
+@media (max-width: 640px) {
+  .react-calendar__tile {
+    min-height: calc((100vh - 240px) / 6);
+    padding: 6px 2px;
+  }
+
+  .calendar-day-task {
+    font-size: 9px;
+  }
+
+  .calendar-day-more {
+    font-size: 9px;
+  }
+}

@@ -118,7 +118,7 @@ function DatePickerSheet({ title, value, onChange, onClose, onClear }) {
             className="date-sheet__clear"
             onClick={onClear}
           >
-            Clear due date
+            Clear Date
           </button>
         )}
       </div>

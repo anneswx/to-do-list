@@ -2,11 +2,12 @@
 // 1. Imports
 // ============================================================
 import { useRef, useState } from 'react'
+import PinIcon from './icons/PinIcon'
 
 // ============================================================
 // 2. Helpers
 // ============================================================
-function formatDueDate(dateString) {
+function formatDate(dateString) {
   if (!dateString) return ''
 
   return new Date(`${dateString}T00:00:00`).toLocaleDateString('en-US', {
@@ -112,7 +113,7 @@ function TaskRow({
           <span className={task.completed ? 'done' : ''}>{task.text}</span>
         </div>
 
-        <div className="due-date-cell">{formatDueDate(task.dueDate)}</div>
+        <div className="due-date-cell">{formatDate(task.dueDate)}</div>
 
         <div>
           <button
@@ -124,7 +125,7 @@ function TaskRow({
             }}
             aria-label={task.pinned ? 'Unpin task' : 'Pin task'}
           >
-            {task.pinned ? '📌' : '📍'}
+            <PinIcon pinned={task.pinned} />
           </button>
         </div>
       </div>

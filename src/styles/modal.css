@@ -4,10 +4,20 @@
 
 .edit-input {
   width: 100%;
-  border: 1px solid #dbe7f2;
-  border-radius: 10px;
-  padding: 8px 10px;
+
+  border: none;
+  outline: none;
+
+  padding: 8px 0 36px;
+
   font: inherit;
+  font-size: 16px;
+
+  color: #243447;
+}
+
+.edit-input::placeholder {
+  color: #c0cad5;
 }
 
 /* ============================================================
@@ -17,11 +27,15 @@
 .modal-backdrop {
   position: fixed;
   inset: 0;
+
   background: rgba(0, 0, 0, 0.32);
+
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding: 0 16px 16px;
+
+  padding: 0;
+
   z-index: 100;
 }
 
@@ -31,100 +45,18 @@
 
 .modal {
   position: relative;
+
   width: 100%;
   max-width: 600px;
+
   background: white;
-  border-radius: 20px 20px 0 0;
-  padding: 20px;
+
+  border-radius: 22px 22px 0 0;
+
+  padding: 18px 20px calc(18px + env(safe-area-inset-bottom, 0px));
+
   box-shadow: 0 -14px 40px rgba(36, 52, 71, 0.18);
-  max-height: 50vh;
+
+  max-height: 55vh;
   overflow: auto;
-}
-
-.modal h2 {
-  margin: 0 0 16px;
-  font-size: 20px;
-}
-
-/* ============================================================
-   4. Close Button
-   ============================================================ */
-
-.modal-close {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  border: none;
-  background: transparent;
-  color: #6f8194;
-  font-size: 28px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.modal-close:hover,
-.modal-close:active {
-  color: #243447;
-}
-
-/* ============================================================
-   5. Editable Due Date
-   ============================================================ */
-
-.editable-due-date {
-  width: 100%;
-  margin-top: 12px;
-  border: 1px solid #f0cfae;
-  background: #fff8f0;
-  color: #243447;
-  border-radius: 12px;
-  padding: 12px;
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  cursor: pointer;
-  font: inherit;
-}
-
-.editable-due-date span {
-  color: #9a6a3a;
-  font-weight: 600;
-}
-
-.editable-due-date strong {
-  color: #d47a34;
-}
-
-/* ============================================================
-   6. Action Buttons Row
-   ============================================================ */
-
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.modal-actions button {
-  border: none;
-  border-radius: 10px;
-  padding: 10px 14px;
-  background: #7eaedb;
-  color: white;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-/* ============================================================
-   7. Delete Button
-   ============================================================ */
-
-.modal-actions button.danger {
-  background: #e88484;
-  color: white;
-}
-
-.modal-actions button.danger:hover {
-  background: #dc7272;
 }

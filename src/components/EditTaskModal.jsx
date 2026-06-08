@@ -1,61 +1,76 @@
 // ============================================================
-// 1. Helpers
+// 1. Imports
 // ============================================================
-function formatDueDate(dateString) {
-  if (!dateString) return 'No due date'
+import CalendarIcon from './icons/CalendarIcon'
+import PinIcon from './icons/PinIcon'
+import TrashIcon from './icons/TrashIcon'
+
+// ============================================================
+// 2. Helpers
+// ============================================================
+function formatDate(dateString) {
+  if (!dateString) return ''
 
   return new Date(`${dateString}T00:00:00`).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
-    year: 'numeric',
   })
 }
 
 // ============================================================
-// 2. Edit Task Modal Component
+// 3. Edit Task Modal Component
 // ============================================================
 function EditTaskModal({
   editingText,
   setEditingText,
   editingDueDate,
+  editingPinned,
   onOpenDatePicker,
-  onSave,
-  onCancel,
+  onTogglePinned,
+  onSaveAndClose,
   onDelete,
 }) {
   return (
-    <div className="modal-backdrop" onClick={onCancel}>
+    <div className="modal-backdrop" onClick={onSaveAndClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <button
-          type="button"
-          className="modal-close"
-          aria-label="Close edit task window"
-          onClick={onCancel}
-        >
-          ×
-        </button>
-
-        <h2>Edit task</h2>
-
         <input
           className="edit-input"
           value={editingText}
           onChange={(e) => setEditingText(e.target.value)}
+          autoFocus
         />
 
-        <button
-          type="button"
-          className="editable-due-date"
-          onClick={onOpenDatePicker}
-        >
-          <span>Due date</span>
-          <strong>{formatDueDate(editingDueDate)}</strong>
-        </button>
+        <div className="sheet-actions">
+          <button
+            type="button"
+            className={`sheet-icon-action${
+              editingDueDate ? ' sheet-icon-action--active' : ''
+            }`}
+            onClick={onOpenDatePicker}
+            aria-label="Edit date"
+          >
+            <CalendarIcon className="sheet-icon-action__svg" />
+            {editingDueDate && <span>{formatDate(editingDueDate)}</span>}
+          </button>
 
-        <div className="modal-actions">
-          <button onClick={onSave}>Save</button>
-          <button className="danger" onClick={onDelete}>
-            Delete
+          <button
+            type="button"
+            className={`sheet-icon-action${
+              editingPinned ? ' sheet-icon-action--pinned' : ''
+            }`}
+            onClick={onTogglePinned}
+            aria-label={editingPinned ? 'Unpin task' : 'Pin task'}
+          >
+            <PinIcon pinned={editingPinned} />
+          </button>
+
+          <button
+            type="button"
+            className="sheet-delete-icon"
+            onClick={onDelete}
+            aria-label="Delete task"
+          >
+            <TrashIcon className="sheet-delete-icon__svg" />
           </button>
         </div>
       </div>
@@ -64,6 +79,6 @@ function EditTaskModal({
 }
 
 // ============================================================
-// 3. Export
+// 4. Export
 // ============================================================
 export default EditTaskModal

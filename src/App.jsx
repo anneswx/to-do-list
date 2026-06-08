@@ -6,11 +6,15 @@ import './styles/app.css'
 import './styles/tasks.css'
 import './styles/modal.css'
 import './styles/calendar.css'
+import './styles/sheets.css'
+import './styles/calendar-page.css'
 
 import AddTaskForm from './components/AddTaskForm'
 import TaskTable from './components/TaskTable'
 import EditTaskModal from './components/EditTaskModal'
 import DatePickerSheet from './components/DatePickerSheet'
+import CalendarIcon from './components/icons/CalendarIcon'
+import CalendarPage from './pages/CalendarPage'
 
 import {
   formatDbError,
@@ -28,6 +32,7 @@ import {
 
 // ============================================================
 // 2. Sort Tasks
+// pinned first, then nearer dates first, then newest created
 // ============================================================
 function sortTasks(tasks) {
   return [...tasks].sort((a, b) => {
@@ -36,7 +41,7 @@ function sortTasks(tasks) {
     }
 
     if (a.dueDate && b.dueDate) {
-      return b.dueDate.localeCompare(a.dueDate)
+      return a.dueDate.localeCompare(b.dueDate)
     }
 
     if (a.dueDate && !b.dueDate) return -1
@@ -56,11 +61,19 @@ function App() {
   // 4. State
   // ============================================================
   const [tasks, setTasks] = useState(() => (useCloud ? [] : loadLocalTasks()))
+
+  const [activePage, setActivePage] = useState('tasks')
+
   const [newTask, setNewTask] = useState('')
   const [newTaskDueDate, setNewTaskDueDate] = useState('')
+  const [newTaskPinned, setNewTaskPinned] = useState(false)
+  const [isAddSheetOpen, setIsAddSheetOpen] = useState(false)
+
   const [modalTask, setModalTask] = useState(null)
   const [editingText, setEditingText] = useState('')
   const [editingDueDate, setEditingDueDate] = useState('')
+  const [editingPinned, setEditingPinned] = useState(false)
+
   const [datePickerMode, setDatePickerMode] = useState(null)
   const [error, setError] = useState(null)
 
@@ -77,7 +90,7 @@ function App() {
       .select('*')
       .eq('list_id', LIST_ID)
       .order('pinned', { ascending: false })
-      .order('due_date', { ascending: false, nullsFirst: false })
+      .order('due_date', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: false })
 
     if (dbError) {
@@ -142,13 +155,12 @@ function App() {
           completed: false,
           createdAt: new Date().toISOString(),
           dueDate: newTaskDueDate || null,
-          pinned: false,
+          pinned: newTaskPinned,
         },
         ...prev,
       ])
 
-      setNewTask('')
-      setNewTaskDueDate('')
+      resetAddForm()
       return
     }
 
@@ -157,7 +169,7 @@ function App() {
       text,
       completed: false,
       due_date: newTaskDueDate || null,
-      pinned: false,
+      pinned: newTaskPinned,
     })
 
     if (dbError) {
@@ -165,9 +177,15 @@ function App() {
       return
     }
 
+    resetAddForm()
+    fetchTasks()
+  }
+
+  function resetAddForm() {
     setNewTask('')
     setNewTaskDueDate('')
-    fetchTasks()
+    setNewTaskPinned(false)
+    setIsAddSheetOpen(false)
   }
 
   // ============================================================
@@ -231,30 +249,42 @@ function App() {
     setModalTask(task)
     setEditingText(task.text)
     setEditingDueDate(task.dueDate || '')
+    setEditingPinned(Boolean(task.pinned))
   }
 
-  function cancelEdit() {
+  function closeEditModal() {
     setModalTask(null)
     setEditingText('')
     setEditingDueDate('')
+    setEditingPinned(false)
   }
 
   // ============================================================
   // 12. Save Edited Task
   // ============================================================
-  async function saveEdit(id) {
+  async function saveEditAndClose() {
+    if (!modalTask) return
+
     const text = editingText.trim()
-    if (!text) return
+    if (!text) {
+      closeEditModal()
+      return
+    }
 
     if (!useCloud) {
       setTasks((prev) =>
         prev.map((task) =>
-          task.id === id
-            ? { ...task, text, dueDate: editingDueDate || null }
+          task.id === modalTask.id
+            ? {
+              ...task,
+              text,
+              dueDate: editingDueDate || null,
+              pinned: editingPinned,
+            }
             : task,
         ),
       )
-      cancelEdit()
+      closeEditModal()
       return
     }
 
@@ -263,8 +293,9 @@ function App() {
       .update({
         text,
         due_date: editingDueDate || null,
+        pinned: editingPinned,
       })
-      .eq('id', id)
+      .eq('id', modalTask.id)
       .eq('list_id', LIST_ID)
 
     if (dbError) {
@@ -272,22 +303,19 @@ function App() {
       return
     }
 
-    cancelEdit()
+    closeEditModal()
     fetchTasks()
   }
 
-  /// ============================================================
+  // ============================================================
   // 13. Delete Task
   // ============================================================
   async function deleteTask(id) {
-    // Optimistic UI update: remove from screen immediately
     const previousTasks = tasks
     setTasks((prev) => prev.filter((task) => task.id !== id))
-    cancelEdit()
+    closeEditModal()
 
-    if (!useCloud) {
-      return
-    }
+    if (!useCloud) return
 
     const { error: dbError } = await supabase
       .from('tasks')
@@ -296,7 +324,6 @@ function App() {
       .eq('list_id', LIST_ID)
 
     if (dbError) {
-      // Restore the task if delete fails
       setTasks(previousTasks)
       setError(formatDbError(dbError))
       return
@@ -350,46 +377,53 @@ function App() {
       <main className="container">
         <header className="header">
           <h1>A & L Planning</h1>
-          <p>Simple shared to-do list</p>
         </header>
 
         {error && <div className="error">{error}</div>}
 
-        <AddTaskForm
-          newTask={newTask}
-          setNewTask={setNewTask}
-          dueDate={newTaskDueDate}
-          onOpenDatePicker={openNewTaskDatePicker}
-          onAddTask={addTask}
-        />
+        {activePage === 'tasks' && (
+          <>
+            <TaskTable
+              tasks={sortedTasks}
+              onToggleTask={toggleTask}
+              onTogglePin={togglePin}
+              onDeleteTask={deleteTask}
+              onOpenEditModal={openEditModal}
+            />
 
-        <TaskTable
-          tasks={sortedTasks}
-          onToggleTask={toggleTask}
-          onTogglePin={togglePin}
-          onDeleteTask={deleteTask}
-          onOpenEditModal={openEditModal}
-        />
+            <AddTaskForm
+              isOpen={isAddSheetOpen}
+              newTask={newTask}
+              setNewTask={setNewTask}
+              dueDate={newTaskDueDate}
+              pinned={newTaskPinned}
+              onTogglePinned={() => setNewTaskPinned((prev) => !prev)}
+              onOpen={() => setIsAddSheetOpen(true)}
+              onClose={() => setIsAddSheetOpen(false)}
+              onOpenDatePicker={openNewTaskDatePicker}
+              onAddTask={addTask}
+            />
+          </>
+        )}
+
+        {activePage === 'calendar' && <CalendarPage tasks={sortedTasks} />}
 
         {modalTask && (
           <EditTaskModal
             editingText={editingText}
             setEditingText={setEditingText}
             editingDueDate={editingDueDate}
+            editingPinned={editingPinned}
             onOpenDatePicker={openEditDatePicker}
-            onSave={() => saveEdit(modalTask.id)}
-            onCancel={cancelEdit}
+            onTogglePinned={() => setEditingPinned((prev) => !prev)}
+            onSaveAndClose={saveEditAndClose}
             onDelete={() => deleteTask(modalTask.id)}
           />
         )}
 
         {datePickerMode && (
           <DatePickerSheet
-            title={
-              datePickerMode === 'new-task'
-                ? 'Choose due date'
-                : 'Edit due date'
-            }
+            title={datePickerMode === 'new-task' ? 'Choose Date' : 'Edit Date'}
             value={
               datePickerMode === 'new-task' ? newTaskDueDate : editingDueDate
             }
@@ -398,6 +432,39 @@ function App() {
             onClear={clearDatePickerValue}
           />
         )}
+
+        <nav className="bottom-tab-bar">
+          <button
+            type="button"
+            className={`bottom-tab-bar__item${activePage === 'tasks' ? ' bottom-tab-bar__item--active' : ''
+              }`}
+            onClick={() => setActivePage('tasks')}
+            aria-label="To-do list"
+          >
+            <svg
+              className="bottom-tab-bar__icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M5 13l4 4L19 7" />
+            </svg>
+          </button>
+
+          <button
+            type="button"
+            className={`bottom-tab-bar__item${activePage === 'calendar' ? ' bottom-tab-bar__item--active' : ''
+              }`}
+            onClick={() => setActivePage('calendar')}
+            aria-label="Calendar"
+          >
+            <CalendarIcon className="bottom-tab-bar__icon" />
+          </button>
+        </nav>
       </main>
     </div>
   )

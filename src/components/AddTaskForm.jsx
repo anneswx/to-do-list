@@ -1,8 +1,15 @@
 // ============================================================
-// 1. Helpers
+// 1. Imports
 // ============================================================
-function formatDueDate(dateString) {
-  if (!dateString) return 'Due date'
+import CalendarIcon from './icons/CalendarIcon'
+import PinIcon from './icons/PinIcon'
+import ArrowUpIcon from './icons/ArrowUpIcon'
+
+// ============================================================
+// 2. Helpers
+// ============================================================
+function formatDate(dateString) {
+  if (!dateString) return ''
 
   return new Date(`${dateString}T00:00:00`).toLocaleDateString('en-US', {
     month: 'short',
@@ -11,40 +18,82 @@ function formatDueDate(dateString) {
 }
 
 // ============================================================
-// 2. Add Task Form Component
+// 3. Add Task Form Component
 // ============================================================
 function AddTaskForm({
+  isOpen,
   newTask,
   setNewTask,
   dueDate,
+  pinned,
+  onTogglePinned,
+  onOpen,
+  onClose,
   onOpenDatePicker,
   onAddTask,
 }) {
   return (
-    <form className="add-form" onSubmit={onAddTask}>
-      <input
-        type="text"
-        value={newTask}
-        onChange={(e) => setNewTask(e.target.value)}
-        placeholder="Add a new task"
-      />
-
-      <button
-        type="button"
-        className={`calendar-button${dueDate ? ' calendar-button--active' : ''}`}
-        onClick={onOpenDatePicker}
-        aria-label="Choose due date"
-      >
-        📅
-        <span>{formatDueDate(dueDate)}</span>
+    <>
+      <button type="button" className="floating-add-button" onClick={onOpen}>
+        +
       </button>
 
-      <button type="submit">Add</button>
-    </form>
+      {isOpen && (
+        <div className="add-sheet-backdrop" onClick={onClose}>
+          <form
+            className="add-sheet"
+            onSubmit={onAddTask}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <input
+              autoFocus
+              className="add-sheet__input"
+              type="text"
+              value={newTask}
+              onChange={(e) => setNewTask(e.target.value)}
+              placeholder="What would you like to do?"
+            />
+
+            <div className="sheet-actions">
+              <button
+                type="button"
+                className={`sheet-icon-action${
+                  dueDate ? ' sheet-icon-action--active' : ''
+                }`}
+                onClick={onOpenDatePicker}
+                aria-label="Choose date"
+              >
+                <CalendarIcon className="sheet-icon-action__svg" />
+                {dueDate && <span>{formatDate(dueDate)}</span>}
+              </button>
+
+              <button
+                type="button"
+                className={`sheet-icon-action${
+                  pinned ? ' sheet-icon-action--pinned' : ''
+                }`}
+                onClick={onTogglePinned}
+                aria-label={pinned ? 'Unpin new task' : 'Pin new task'}
+              >
+                <PinIcon pinned={pinned} />
+              </button>
+
+              <button
+                type="submit"
+                className="sheet-submit-circle"
+                aria-label="Add task"
+              >
+                <ArrowUpIcon className="sheet-submit-circle__svg" />
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+    </>
   )
 }
 
 // ============================================================
-// 3. Export
+// 4. Export
 // ============================================================
 export default AddTaskForm

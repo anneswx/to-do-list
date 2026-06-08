@@ -52,20 +52,25 @@
 .task-row {
   position: relative;
   z-index: 2;
+
   display: grid;
   grid-template-columns: 80px 1fr 120px 70px;
   align-items: center;
+
   min-height: 56px;
+
   padding: 14px 16px;
+
   background: white;
+
   cursor: pointer;
   touch-action: pan-y;
-  transition: transform 0.18s ease;
-  user-select: none;
-}
 
-.task-row:hover {
-  background: #fbfdff;
+  transition: transform 0.18s ease;
+
+  user-select: none;
+
+  font-size: 16px;
 }
 
 /* ============================================================
@@ -118,14 +123,22 @@
 .pin-button {
   border: none;
   background: transparent;
-  color: #9eb0c1;
-  font-size: 20px;
+  color: #a9b6c4;
   cursor: pointer;
   padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .pin-button--pinned {
   color: #e88b4a;
+  background: transparent;
+}
+
+.pin-icon {
+  width: 22px;
+  height: 22px;
 }
 
 /* ============================================================
@@ -137,7 +150,6 @@
   .task-row {
     grid-template-columns: 58px 1fr 78px 48px;
     padding: 12px;
-    font-size: 13px;
   }
 
   .due-date-cell {
