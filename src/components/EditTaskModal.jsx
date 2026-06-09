@@ -37,7 +37,6 @@ function EditTaskModal({
           className="edit-input"
           value={editingText}
           onChange={(e) => setEditingText(e.target.value)}
-          autoFocus
         />
 
         <div className="sheet-actions">

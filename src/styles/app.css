@@ -26,8 +26,7 @@ body {
 
 .app {
   min-height: 100vh;
-  padding: 24px;
-  padding-bottom: 128px;
+  padding: calc(24px + env(safe-area-inset-top, 0px)) 24px 128px;
 }
 
 .container {
@@ -271,8 +270,7 @@ body {
 
 @media (max-width: 640px) {
   .app {
-    padding: 16px;
-    padding-bottom: 128px;
+    padding: calc(16px + env(safe-area-inset-top, 0px)) 16px 128px;
   }
 
   .floating-add-button {
