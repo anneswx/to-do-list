@@ -373,13 +373,13 @@ function App() {
   // 15. Render
   // ============================================================
   return (
-  <div className={`app ${activePage === 'calendar' ? 'app--calendar' : ''}`}>
-    <main className="container">
-      {activePage !== 'calendar' && (
-        <header className="header">
-          <h1>A & L Planning</h1>
-        </header>
-      )}
+    <div className={`app ${activePage === 'calendar' ? 'app--calendar' : ''}`}>
+      <main className="container">
+        {activePage !== 'calendar' && (
+          <header className="header">
+            <h1>A & L Planning</h1>
+          </header>
+        )}
 
         {error && <div className="error">{error}</div>}
 
@@ -408,8 +408,12 @@ function App() {
           </>
         )}
 
-        {activePage === 'calendar' && <CalendarPage tasks={sortedTasks} />}
-
+        {activePage === 'calendar' && (
+          <CalendarPage
+            tasks={sortedTasks}
+            onOpenEditModal={openEditModal}
+          />
+        )}
         {modalTask && (
           <EditTaskModal
             editingText={editingText}

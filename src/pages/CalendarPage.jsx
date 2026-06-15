@@ -28,7 +28,6 @@ function fromMonthSerial(serial) {
 function getMonthLabel(year, month) {
   return new Date(year, month, 1).toLocaleDateString('en-US', {
     month: 'long',
-    year: 'numeric',
   })
 }
 
@@ -73,7 +72,7 @@ function getWeekDates(date) {
 // ============================================================
 // 3. Calendar Page
 // ============================================================
-function CalendarPage({ tasks }) {
+function CalendarPage({ tasks, onOpenEditModal }) {
   const today = useMemo(() => new Date(), [])
   const currentSerial = toMonthSerial(today.getFullYear(), today.getMonth())
 
@@ -136,6 +135,10 @@ function CalendarPage({ tasks }) {
     setView('day')
   }
 
+  function returnToMonthView() {
+    setView('month')
+  }
+
   function handleMonthScroll() {
     const container = monthScrollRef.current
     if (!container) return
@@ -159,7 +162,9 @@ function CalendarPage({ tasks }) {
       const element = monthRefs.current[serial]
       if (!element) return
 
-      const distance = Math.abs(element.getBoundingClientRect().top - containerTop)
+      const distance = Math.abs(
+        element.getBoundingClientRect().top - containerTop,
+      )
 
       if (distance < closestDistance) {
         closestDistance = distance
@@ -177,10 +182,14 @@ function CalendarPage({ tasks }) {
   useEffect(() => {
     if (view !== 'month') return
 
+    const container = monthScrollRef.current
     const element = monthRefs.current[pendingScrollSerial]
-    if (!element) return
 
-    element.scrollIntoView({ block: 'start' })
+    if (!container || !element) return
+
+    requestAnimationFrame(() => {
+      container.scrollTop = element.offsetTop - container.offsetTop
+    })
   }, [view, pendingScrollSerial, monthSerials])
 
   const weekDates = selectedDate ? getWeekDates(selectedDate) : []
@@ -190,16 +199,24 @@ function CalendarPage({ tasks }) {
     <div className="calendar-page">
       {view === 'month' && (
         <>
-          <header className="calendar-page__header">
-            <button
-              className="calendar-page__year-button"
-              type="button"
-              onClick={openYearView}
-            >
-              ‹ {activeYear}
-            </button>
+          <header className="calendar-page__header calendar-page__header--month">
+            <div className="calendar-page__top-row">
+              <button
+                className="calendar-page__year-button"
+                type="button"
+                onClick={openYearView}
+              >
+                ‹ {activeYear}
+              </button>
 
-            <h2>{getMonthLabel(activeYear, activeMonth)}</h2>
+              <h2>{getMonthLabel(activeYear, activeMonth)}</h2>
+            </div>
+
+            <div className="calendar-page__sticky-weekdays">
+              {weekdays.map((weekday) => (
+                <div key={weekday}>{weekday}</div>
+              ))}
+            </div>
           </header>
 
           <div
@@ -219,12 +236,14 @@ function CalendarPage({ tasks }) {
                     monthRefs.current[serial] = element
                   }}
                 >
-                  <h3>{getMonthLabel(year, month)}</h3>
+                  <div className="calendar-month-section__spacer" />
 
-                  <div className="calendar-month__weekdays">
-                    {weekdays.map((weekday) => (
-                      <div key={weekday}>{weekday}</div>
-                    ))}
+                  <div className="calendar-month__label-row">
+                    <span className="calendar-month__label">
+                      {new Date(year, month, 1).toLocaleDateString('en-US', {
+                        month: 'short',
+                      })}
+                    </span>
                   </div>
 
                   <div className="calendar-month__grid">
@@ -235,27 +254,32 @@ function CalendarPage({ tasks }) {
                       return (
                         <button
                           className={`calendar-day ${
-                            !isCurrentMonth ? 'calendar-day--outside' : ''
+                            !isCurrentMonth ? 'calendar-day--empty' : ''
                           }`}
                           key={toDateKey(date)}
                           type="button"
-                          onClick={() => openDayView(date)}
+                          onClick={() => {
+                            if (isCurrentMonth) {
+                              openDayView(date)
+                            }
+                          }}
                         >
                           <span className="calendar-day__number">
-                            {date.getDate()}
+                            {isCurrentMonth ? date.getDate() : ''}
                           </span>
 
                           <span className="calendar-day__tasks">
-                            {dayTasks.slice(0, 2).map((task) => (
-                              <span
-                                className="calendar-day__task"
-                                key={task.id}
-                              >
-                                {task.text}
-                              </span>
-                            ))}
+                            {isCurrentMonth &&
+                              dayTasks.slice(0, 2).map((task) => (
+                                <span
+                                  className="calendar-day__task"
+                                  key={task.id}
+                                >
+                                  {task.text}
+                                </span>
+                              ))}
 
-                            {dayTasks.length > 2 && (
+                            {isCurrentMonth && dayTasks.length > 2 && (
                               <span className="calendar-day__more">
                                 +{dayTasks.length - 2}
                               </span>
@@ -304,15 +328,8 @@ function CalendarPage({ tasks }) {
 
                 <div className="calendar-year__mini-grid">
                   {getMonthDates(activeYear, month).map((date) => (
-                    <span
-                      className={
-                        date.getMonth() === month
-                          ? ''
-                          : 'calendar-year__mini-day--outside'
-                      }
-                      key={toDateKey(date)}
-                    >
-                      {date.getDate()}
+                    <span key={toDateKey(date)}>
+                      {date.getMonth() === month ? date.getDate() : ''}
                     </span>
                   ))}
                 </div>
@@ -328,7 +345,7 @@ function CalendarPage({ tasks }) {
             <button
               className="calendar-page__year-button"
               type="button"
-              onClick={() => setView('month')}
+              onClick={returnToMonthView}
             >
               ‹ Month
             </button>
@@ -337,21 +354,29 @@ function CalendarPage({ tasks }) {
           </header>
 
           <div className="calendar-week">
-            {weekDates.map((date) => (
-              <button
-                className={`calendar-week__day ${
-                  toDateKey(date) === toDateKey(selectedDate)
-                    ? 'calendar-week__day--selected'
-                    : ''
-                }`}
-                key={toDateKey(date)}
-                type="button"
-                onClick={() => setSelectedDate(date)}
-              >
-                <span>{weekdays[date.getDay()]}</span>
-                <strong>{date.getDate()}</strong>
-              </button>
-            ))}
+            {weekDates.map((date) => {
+              const isSelected = toDateKey(date) === toDateKey(selectedDate)
+
+              return (
+                <button
+                  className={`calendar-week__day ${
+                    isSelected ? 'calendar-week__day--selected' : ''
+                  }`}
+                  key={toDateKey(date)}
+                  type="button"
+                  onClick={() => {
+                    if (isSelected) {
+                      returnToMonthView()
+                    } else {
+                      setSelectedDate(date)
+                    }
+                  }}
+                >
+                  <span>{weekdays[date.getDay()]}</span>
+                  <strong>{date.getDate()}</strong>
+                </button>
+              )
+            })}
           </div>
 
           <section className="calendar-day-detail">
@@ -359,9 +384,14 @@ function CalendarPage({ tasks }) {
               <p>No tasks</p>
             ) : (
               selectedTasks.map((task) => (
-                <div className="calendar-day-detail__task" key={task.id}>
+                <button
+                  className="calendar-day-detail__task"
+                  key={task.id}
+                  type="button"
+                  onClick={() => onOpenEditModal(task)}
+                >
                   {task.text}
-                </div>
+                </button>
               ))
             )}
           </section>
