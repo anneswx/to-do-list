@@ -11,9 +11,9 @@
 /* Main calendar page wrapper */
 .calendar-page {
     width: 100%;
-    height: calc(100dvh - 88px);
+    height: 100dvh;
     margin: 0;
-    padding: env(safe-area-inset-top, 0px) 3px 0;
+    padding: 0 3px;
     background: #f4f8fc;
     overflow: hidden;
 }
@@ -29,7 +29,8 @@
     grid-template-columns: 90px 1fr 90px;
     align-items: center;
     padding: 12px 10px 0;
-    position: relative;
+    position: sticky;
+    top: 0;
     z-index: 10;
     background: #f4f8fc;
 }
@@ -109,10 +110,10 @@
 
 /* Scrollable container that holds all month sections */
 .calendar-month-scroll {
-    height: calc(100dvh - 182px - env(safe-area-inset-top, 0px));
+    height: calc(100dvh - 94px - env(safe-area-inset-top, 0px));
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    padding-bottom: 110px;
+    padding-bottom: 140px;
 }
 
 /* Individual month section inside the month scroll area */
@@ -152,7 +153,7 @@
 .calendar-month__label-row {
     display: flex;
     align-items: center;
-    padding: 2px 0 8px;
+    padding: 2px 0 8px 16px;
 }
 
 /* Month label such as Jun, Jul, Aug */
