@@ -1,3 +1,4 @@
+> For AI assistants: Please read `AI_CONTEXT.md` before making architecture or code suggestions.
 # A & L Planning
 
 A & L Planning is a planning app designed primarily for couples.
