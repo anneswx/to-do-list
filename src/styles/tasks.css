@@ -140,9 +140,29 @@
   width: 22px;
   height: 22px;
 }
+/* ============================================================
+9. Calendar Week View Task Rows
+============================================================ */
+
+.task-row--calendar {
+  grid-template-columns: 58px 1fr;
+}
+
+.task-row__main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.task-row__date-below {
+  color: #6f8194;
+  font-size: 12px;
+  font-weight: 600;
+}
 
 /* ============================================================
-   9. Mobile Layout
+   10. Mobile Layout
    ============================================================ */
 
 @media (max-width: 640px) {

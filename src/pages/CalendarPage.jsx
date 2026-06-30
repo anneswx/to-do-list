@@ -2,6 +2,7 @@
 // 1. Imports
 // ============================================================
 import { useEffect, useMemo, useRef, useState } from 'react'
+import TaskRow from '../components/TaskRow'
 
 // ============================================================
 // 2. Date Helpers
@@ -72,7 +73,12 @@ function getWeekDates(date) {
 // ============================================================
 // 3. Calendar Page
 // ============================================================
-function CalendarPage({ tasks, onOpenEditModal }) {
+function CalendarPage({
+    tasks,
+    onToggleTask,
+    onDeleteTask,
+    onOpenEditModal,
+}) {
     const today = useMemo(() => new Date(), [])
     const currentSerial = toMonthSerial(today.getFullYear(), today.getMonth())
 
@@ -381,16 +387,18 @@ function CalendarPage({ tasks, onOpenEditModal }) {
                         {selectedTasks.length === 0 ? (
                             <p>No tasks</p>
                         ) : (
-                            selectedTasks.map((task) => (
-                                <button
-                                    className="calendar-day-detail__task"
-                                    key={task.id}
-                                    type="button"
-                                    onClick={() => onOpenEditModal(task)}
-                                >
-                                    {task.text}
-                                </button>
-                            ))
+                            <div className="calendar-day-detail__task-list">
+                                {selectedTasks.map((task) => (
+                                    <TaskRow
+                                        key={task.id}
+                                        task={task}
+                                        variant="calendar"
+                                        onToggleTask={onToggleTask}
+                                        onDeleteTask={onDeleteTask}
+                                        onOpenEditModal={onOpenEditModal}
+                                    />
+                                ))}
+                            </div>
                         )}
                     </section>
                 </>

@@ -21,6 +21,7 @@ function formatDate(dateString) {
 // ============================================================
 function TaskRow({
   task,
+  variant = 'table',
   onToggleTask,
   onTogglePin,
   onDeleteTask,
@@ -28,9 +29,11 @@ function TaskRow({
 }) {
   const [translateX, setTranslateX] = useState(0)
   const [isOpen, setIsOpen] = useState(false)
-
   const swipeStartX = useRef(0)
   const swipeDragged = useRef(false)
+
+  const isCalendarVariant = variant === 'calendar'
+  const formattedDate = formatDate(task.dueDate)
 
   function handlePointerDown(event) {
     swipeStartX.current = event.clientX
@@ -83,51 +86,59 @@ function TaskRow({
   return (
     <div className="swipe-row">
       <button
-        type="button"
         className="delete-action"
+        type="button"
         onClick={handleDelete}
-        aria-label={`Delete ${task.text}`}
+        aria-label="Delete task"
       >
         ×
       </button>
 
       <div
-        className="task-row"
+        className={`task-row ${
+          isCalendarVariant ? 'task-row--calendar' : ''
+        }`}
+        style={{ transform: `translateX(${translateX}px)` }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerEnd}
         onPointerCancel={handlePointerEnd}
         onClick={handleRowClick}
-        style={{ transform: `translateX(${translateX}px)` }}
       >
-        <div>
-          <input
-            type="checkbox"
-            checked={task.completed}
-            onChange={() => onToggleTask(task)}
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
+        <input
+          type="checkbox"
+          checked={task.completed}
+          onChange={() => onToggleTask(task)}
+          onClick={(event) => event.stopPropagation()}
+        />
 
-        <div>
+        <div className="task-row__main">
           <span className={task.completed ? 'done' : ''}>{task.text}</span>
+
+          {isCalendarVariant && formattedDate && (
+            <span className="task-row__date-below">{formattedDate}</span>
+          )}
         </div>
 
-        <div className="due-date-cell">{formatDate(task.dueDate)}</div>
+        {!isCalendarVariant && (
+          <span className="due-date-cell">{formattedDate}</span>
+        )}
 
-        <div>
+        {!isCalendarVariant && onTogglePin && (
           <button
+            className={`pin-button ${
+              task.pinned ? 'pin-button--pinned' : ''
+            }`}
             type="button"
-            className={`pin-button${task.pinned ? ' pin-button--pinned' : ''}`}
-            onClick={(e) => {
-              e.stopPropagation()
+            onClick={(event) => {
+              event.stopPropagation()
               onTogglePin(task)
             }}
             aria-label={task.pinned ? 'Unpin task' : 'Pin task'}
           >
-            <PinIcon pinned={task.pinned} />
+            <PinIcon className="pin-icon" />
           </button>
-        </div>
+        )}
       </div>
     </div>
   )

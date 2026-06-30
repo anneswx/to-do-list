@@ -399,21 +399,35 @@
     font-weight: 650;
 }
 
-/* Clickable task card in day detail */
+/* Single task row in day view */
 .calendar-day-detail__task {
     width: 100%;
-    margin-bottom: 10px;
+    min-height: 54px;
     border: none;
-    border-radius: 14px;
+    border-bottom: 1px solid #eef3f8;
     background: white;
     padding: 14px 16px;
     color: #243447;
     font: inherit;
     font-size: 16px;
-    font-weight: 700;
+    font-weight: 650;
     text-align: left;
     cursor: pointer;
-    box-shadow: 0 8px 24px rgba(36, 52, 71, 0.08);
+    box-shadow: none;
+}
+
+/* Remove divider after last task */
+.calendar-day-detail__task:last-child {
+    border-bottom: none;
+}
+
+/* Task list container in day view */
+.calendar-day-detail__task-list {
+    overflow: hidden;
+    border: 1px solid #dbe7f2;
+    border-radius: 18px;
+    background: white;
+    box-shadow: 0 8px 32px rgba(36, 52, 71, 0.08);
 }
 
 /* ============================================================
